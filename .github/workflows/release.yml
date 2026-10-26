@@ -1,0 +1,62 @@
+name: Release
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to prepare, e.g. v1.5.13; may be new"
+        required: true
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+      - name: Install Lua runtime
+        run: sudo apt-get update && sudo apt-get install -y texlive-luatex
+      - name: Verify version tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, subprocess
+          tag = os.environ["RELEASE_TAG"]
+          assert tag == "v" + pathlib.Path("VERSION").read_text().strip(), "Tag differs from VERSION"
+          head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          existing = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"refs/tags/{tag}^{{commit}}"], text=True, stdout=subprocess.PIPE)
+          assert existing.returncode != 0 or existing.stdout.strip() == head, "Existing tag points to a different commit"
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write(f"RELEASE_COMMIT={head}\n")
+          PY
+      - name: Verify offline simulations on both Chimera versions
+        run: python3 tools/test.py
+      - name: Build release assets
+        run: python3 tools/build.py --repository "$GITHUB_REPOSITORY"
+      - name: Prepare draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > /tmp/paczki-release-draft; then
+            if test "$(cat /tmp/paczki-release-draft)" = true; then
+              gh release upload "$RELEASE_TAG" dist/Chimera_Paczki.zip dist/chimera-paczki-runtime.json dist/update.json dist/SHA256SUMS --clobber
+              gh release edit "$RELEASE_TAG" --target "$RELEASE_COMMIT" --title "Chimera Paczki $RELEASE_TAG" --notes-file CHANGELOG.md
+            else
+              # Published release assets are immutable. An existing empty
+              # release may receive missing assets, but never overwrite them.
+              gh release upload "$RELEASE_TAG" dist/Chimera_Paczki.zip dist/chimera-paczki-runtime.json dist/update.json dist/SHA256SUMS
+            fi
+          else
+            gh release create "$RELEASE_TAG" dist/Chimera_Paczki.zip dist/chimera-paczki-runtime.json dist/update.json dist/SHA256SUMS --target "$RELEASE_COMMIT" --draft --title "Chimera Paczki $RELEASE_TAG" --notes-file CHANGELOG.md
+          fi
+      - name: Keep simulation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-test-reports
+          path: test-results/

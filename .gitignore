@@ -1,0 +1,10 @@
+dist/
+test-results/
+__pycache__/
+*.pyc
+.upstreams/
+# Local Mudlet data must never be published.
+chimera_paczki_baza.json
+Database_*.db
+*.log
+upload/

@@ -1,0 +1,49 @@
+CHIMERA PACZKI 1.5.12 — PRZENOSZENIE NA INNE PROFILE
+
+NA PROFILU YARRIMA
+1. Zainstaluj tę wersję: nadpisz cały folder chimera_wtyczki/chimera_paczki
+   w katalogu profilu Mudleta i wykonaj pełne /przeladuj.
+2. Wpisz:
+     /paczki stop
+     /paczki baza eksport
+3. Komunikat pokaże liczbę adresatów oraz pełną ścieżkę zapisanego pliku:
+     chimera_paczki_baza.json
+   To eksport rzeczywistej aktualnej bazy, a nie odtworzenie z logów.
+
+NA KAŻDYM NOWYM PROFILU
+1. Profil musi mieć główne skrypty Chimery i mapę z tymi samymi hashami
+   lokacji. Lokalne numery pokoi mogą być inne — bot odczytuje je z hashy.
+2. Rozpakuj tę samą paczkę do katalogu nowego profilu. Nadpisz cały folder
+   chimera_wtyczki/chimera_paczki i wykonaj pełne /przeladuj.
+3. Skopiuj wyeksportowany chimera_paczki_baza.json do katalogu tego profilu.
+4. Wpisz:
+     /paczki stop
+     /paczki baza import
+     /paczki baza
+   Ostatnie polecenie pokaże połączoną bazę.
+5. Sprawdź limit paczki i pojemniki dla tej postaci. Na poczcie uruchom
+   /paczki poczta tutaj lub /paczki start 1. Każda postać uczy się dalej.
+
+MOŻNA TEŻ WSKAZAĆ PLIK BEZ KOPIOWANIA DO PROFILU
+  /paczki baza import "C:/Users/JakubG/Downloads/chimera_paczki_baza.json"
+Ścieżka jest przykładem — użyj rzeczywistego miejsca swojego pliku.
+
+ZAKRES EKSPORTU
+Przenoszone są nauczone pełne nazwy adresatów NPC i poczt, ich potwierdzone
+hashe lokacji oraz dostępne metadane NPC. Wbudowane trasy Nuln i rejestr
+poczt są już częścią skryptu. Plik nie przenosi mapy, aktywnej paczki,
+kursu, danych postaci/konta, preferencji, zarobków ani ustawień plecaka.
+Osobno nagrane ręcznie trasy tekstowe /paczki ucz pozostają w profilu;
+eksport obejmuje bazę pokazywaną przez /paczki baza.
+
+ŁĄCZENIE BAZY
+Istniejące lokalne wpisy pozostają. Adresaci są łączeni po pełnej nazwie,
+lokalizacje bez powtórzeń. Ten sam plik można importować ponownie bez
+powielania adresatów lub sumowania liczników. Lokalna tożsamość znanego
+NPC ma pierwszeństwo. Nieprawidłowy plik lub konflikt rodzaju NPC/poczta
+odrzuca cały import. Zapis nie wykonuje kodu Lua.
+
+DOŁĄCZENIE AKTUALNEJ BAZY DO WSPÓLNEJ PACZKI
+Baza Yarrima znajduje się lokalnie na Twoim komputerze. Po wykonaniu
+eksportu możesz przesłać chimera_paczki_baza.json w rozmowie, aby dołączyć
+właściwe wpisy do przygotowywanej paczki dla innych profili.
