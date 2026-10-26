@@ -1,5 +1,14 @@
-PACZKI 1.5.12 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
-Zgodność: 5.0.0-beta.13 i 5.0.1; 25 października 2026
+PACZKI 1.5.14 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
+Zgodność: 5.0.0-beta.13 i 5.0.1; 26 października 2026
+
+WYBÓR PACZEK OD 1.5.14
+
+Najpierw miejscowe, następnie międzymiastowe poczta -> poczta.
+Międzydomenowe/międzykrainowe wyłączone. W grupie numer tablicy;
+waga tylko jako limit, cena i ETA informacyjne. Starsze opisy trybów
+zarobek/zaplata/lekkie poniżej są historią i nie zmieniają tej reguły.
+Aktualizacja z GitHuba: /bot stop, /paczki aktualizuj. Po zakończeniu:
+/paczki diagnostyka i /paczki wznow. Nie resetuj bazy.
 
 INSTALACJA I AKTUALIZACJA
 
@@ -10,8 +19,8 @@ Zatrzymaj bota na lądzie. Rozpoczęty kurs pozostanie zapisany.
    Pliki: init.lua, core.lua, routes.lua, new_routes.lua, npc.lua,
    travel.lua, offices.lua, scope.lua, road.lua, ferry.lua, journey.lua,
    transport_data.lua, inventory.lua, memory.lua, path.lua, postal.lua,
-   checkpoint.lua, escape.lua, recovery.lua, eta.lua, karak_transport.lua, city.lua, city_data.lua, planner.lua.
-   Łącznie 24 pliki Lua.
+   checkpoint.lua, escape.lua, recovery.lua, eta.lua, karak_transport.lua, city.lua, city_data.lua, planner.lua, updater.lua.
+   Łącznie 25 plików Lua.
    Katalog profilu: echo(getMudletHomeDir()).
 3. Wykonaj pełne /przeladuj, aby wczytać wszystkie moduły nowej wersji.
 4. /wtyczki pokaże chimera_paczki; /bot pokaże [paczki]. Panel: /paczki.
@@ -882,3 +891,12 @@ i wykonaj /przeladuj. Potem /paczki aktualizuj sprawdza nowe wydania,
 /paczki aktualizacje status pokazuje jego stan. Instalacja czeka na stop
 wszystkich botow, koniec walki i zakonczenie operacji kuriera.
 Aktualizator nie zatrzymuje kursu. Baza i zapisane dane sa zachowane.
+
+1.5.14 — miejscowe przed międzymiastowymi
+----------------------------------------
+Nowa stała kolejność zastępuje starsze opisy trybów zarobek/zaplata/lekkie.
+Najpierw miejscowe z aktualnej poczty, po każdej dostawie powrót i odczyt
+tablicy; potem międzymiastowe poczta -> poczta. W nowym mieście ponownie
+miejscowe. Międzydomenowe/międzykrainowe nie są wybierane automatycznie.
+W grupie: numer tablicy. Waga tylko jako limit, cena i ETA informacyjne.
+Nie trzeba resetować bazy ani zapisanego kursu.

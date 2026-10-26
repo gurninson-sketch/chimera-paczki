@@ -1,6 +1,6 @@
 # Chimera Paczki
 
-Autonomiczny kurier dla **głównych skryptów Chimery** w Mudlecie. Wybiera paczki według przewidywanego zarobku za czas całego kursu, dostarcza je do NPC i urzędów, obsługuje bramy oraz przeprawy, uczy się potwierdzonych adresatów i zachowuje kurs po rozłączeniu.
+Autonomiczny kurier dla **głównych skryptów Chimery** w Mudlecie. Wybiera najpierw paczki miejscowe, a po ich wyczerpaniu międzymiastowe poczta → poczta, dostarcza je do NPC i urzędów, obsługuje bramy oraz przeprawy, uczy się potwierdzonych adresatów i zachowuje kurs po rozłączeniu.
 
 ## Instalacja i aktualizacje
 
@@ -9,7 +9,7 @@ Pobierz [najnowsze wydanie](https://github.com/gurninson-sketch/chimera-paczki/r
 1. W Mudlecie wpisz `/bot stop` i poczekaj na zakończenie trwającej operacji ruchu lub plecaka.
 2. Zastąp cały folder `<profil>/chimera_wtyczki/chimera_paczki` folderem z ZIP-a (25 plików Lua).
 3. Wpisz `/przeladuj` i zaczekaj na zakończenie ładowania.
-4. Sprawdź `/paczki diagnostyka` — wersja 1.5.13. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
+4. Sprawdź `/paczki diagnostyka` — wersja 1.5.14. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
 
 Dotychczasowe wersje do 1.5.12 wymagają tego jednorazowego skopiowania kodu, aby otrzymać aktualizator. Powtórz instalację osobno na każdym profilu.
 
@@ -25,6 +25,14 @@ Automatyczne sprawdzanie jest domyślnie włączone: po uruchomieniu dodatku i c
 Aktualizator pobiera wyłącznie stabilne GitHub Releases z tego repozytorium. Sprawdza rozmiar, SHA-256, komplet plików i składnię Lua, przygotowuje cały nowy folder poza katalogiem wtyczek, zachowuje poprzedni kod i sprawdza powodzenie przeładowania. Przy wykrytym błędzie wraca do poprzedniej wersji. Suma SHA-256 sprawdza zgodność z manifestem wydania; nie jest osobnym podpisem autora.
 
 Wymagane: Chimera **5.0.0-beta.13 lub 5.0.1**, Mudlet **4.20+** dla aktualizacji internetowych. Dostęp do GitHub Releases musi działać na komputerze gracza.
+
+## Kolejność paczek (od 1.5.14)
+
+1. Dostępne paczki **miejscowe** z bieżącej poczty. Po każdej dostawie bot wraca i ponownie odczytuje tablicę.
+2. Gdy nie ma miejscowej paczki możliwej do doręczenia: **międzymiastowa poczta → poczta**. W nowej placówce ponownie pierwszeństwo mają miejscowe.
+3. **Międzydomenowe** (również `miedzykrainowa`) są wyłączone z automatycznego wyboru.
+
+W obrębie typu obowiązuje numer na tablicy. Cena, waga, odległość i ETA nie zmieniają kolejności. Waga musi mieścić się w ustawionym limicie. Oferty wyczerpane, odrzucone lub bez znanej drogi są pomijane z wyjaśnieniem w `/paczki oferty`. Przy dostępnej miejscowej nie liczymy tras dla międzymiastowych ani międzydomenowych. Dawne ustawienia `zarobek`, `zaplata`, `lekkie` nie przywracają starego rankingu.
 
 ## Zapisane dane
 

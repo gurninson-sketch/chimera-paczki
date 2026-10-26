@@ -1,5 +1,13 @@
 # Zmiany
 
+## 1.5.14
+
+- Stała kolejność: miejscowe przed międzymiastowymi poczta → poczta; w grupie numer na tablicy.
+- Międzydomenowe / międzykrainowe wykluczone przed liczeniem tras.
+- Brak liczenia tras międzymiastowych przy dostępnych miejscowych.
+- Cena, masa i ETA nie decydują o pierwszeństwie; limit udźwigu zachowany.
+- Migracja starych trybów i przyczyny odłożenia ofert.
+
 ## 1.5.13
 
 - Osobne publiczne repozytorium i wydania GitHub Releases.

@@ -161,7 +161,7 @@ local function samples(api,actor)
     return api.eta.summary(actor or "yarrim").samples
 end
 
-T.test("default reward-per-minute ranking prefers fewer actual steps over a cheaper weighted map cost",function()
+T.test("local board order stays independent of map cost and informational profitability",function()
     local app,bots,C,api=start()
     launch({OLAFF,JOHAN});T.eq("wybierz paczke 1",nextSend())
     local short,long=diagnostic(C,1),diagnostic(C,2)
@@ -169,7 +169,7 @@ T.test("default reward-per-minute ranking prefers fewer actual steps over a chea
     T.ok(short.eta.seconds<long.eta.seconds);T.ok(short.score>long.score)
     T.eq(9*60/short.eta.seconds,short.score,"The profitability unit is silver per minute for one parcel")
     T.eq("estimate",short.eta.method);T.eq(0,short.eta.samples)
-    T.eq("rate",C.config.strategy);T.eq(1,C.selected.number);T.eq(0,#app.errors,M.text())
+    T.eq("local_first",C.config.strategy);T.eq(1,C.selected.number);T.eq(0,#app.errors,M.text())
 end)
 
 T.test("availability counts do not multiply the single-parcel reward or profitability",function()
@@ -190,22 +190,22 @@ T.test("a periodic ship captain includes waiting time even when his mapped walk 
     T.ok(captain.score<fixed.score);T.eq("estimate",captain.eta.method);T.eq(0,#app.errors,M.text())
 end)
 
-T.test("live tempo changes recompute ETA and can change which parcel earns more per minute",function()
+T.test("live tempo changes recompute informational ETA without changing board order",function()
     local app,bots,C=start()
     local lines={JOHAN,"2. Olaff Meier Mlodszy miejscowa 1.00 kg 12 srebrnych monet [x1]"}
     M.input("/paczki tempo 0.15");local fast=rank(C,lines);local seconds=diagnostic(C,2).eta.seconds
-    T.eq(2,fast[1].number)
+    T.eq(1,fast[1].number)
     M.input("/paczki tempo 30");local slow=rank(C,lines)
     T.ok(diagnostic(C,2).eta.seconds>seconds);T.eq(1,slow[1].number)
     T.eq(0,#app.errors,M.text())
 end)
 
-T.test("pay and light strategies retain their explicit priorities while showing a time estimate",function()
+T.test("legacy pay and light commands preserve the fixed local-first policy",function()
     local app,bots,C=start()
     local lines={"1. Johan Kornwalz miejscowa 0.50 kg 9 srebrnych monet [x1]",
         "2. Olaff Meier Mlodszy miejscowa 2.00 kg 12 srebrnych monet [x1]"}
-    M.input("/paczki tryb zaplata");T.eq(2,rank(C,lines)[1].number)
-    M.input("/paczki tryb lekkie");T.eq(1,rank(C,lines)[1].number)
+    M.input("/paczki tryb zaplata");T.eq(1,rank(C,lines)[1].number);T.eq("local_first",C.config.strategy)
+    M.input("/paczki tryb lekkie");T.eq(1,rank(C,lines)[1].number);T.eq("local_first",C.config.strategy)
     T.ok(diagnostic(C,1).eta.seconds>0);T.eq(0,#app.errors,M.text())
 end)
 

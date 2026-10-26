@@ -63,13 +63,13 @@ test("37 complete original boards, wrapped offers and numeric renumbering",funct
     for _,o in ipairs(b.boardRows) do check(o.number>previous); check(o.kg>0); check(o.count>0); previous=o.number end
   end
   local b,e=fresh(); start(b,e); feed(b,fixtures.boards[1]); e:untilSend()
-  eq(b.selected.name,"henry schmidt"); eq(b.selected.number,2,"higher pay per round trip beats nominal pay")
+  eq(b.selected.name,"fryderik miecznik"); eq(b.selected.number,1,"first local board number wins regardless of price")
   local f,g=fresh(); start(f,g)
   local firstShort
   for _,board in ipairs(fixtures.boards) do
     if board[3] and board[3]:find("Olaf Hubner",1,true) then firstShort=board; break end
   end
-  feed(f,firstShort); g:untilSend(); eq(f.selected.name,"joachim eisenberg"); eq(f.selected.number,2)
+  feed(f,firstShort); g:untilSend(); eq(f.selected.name,"olaf hubner"); eq(f.selected.number,1)
   local h,i=fresh(); start(h,i)
   local shifted
   for _,board in ipairs(fixtures.boards) do
@@ -126,7 +126,7 @@ test("numeric weight, Unicode, money and optional strategies",function()
   eq(m.gold,11); eq(m.silver,4); eq(m.copper,7)
   b:command("limit 0,8"); eq(b.config.maxKg,0.8); eq(e.saves,1)
   b:command("tempo 0.01"); eq(b.config.delay,0.35,"reject unsafe zero/short delay")
-  b:command("tryb lekkie"); eq(b.config.strategy,"light")
+  b:command("tryb lekkie"); eq(b.config.strategy,"local_first")
   local rows={b:parseOffer("1. Henry Schmidt miejscowa 2.30 kg 11 srebrnych monet [x6]"),b:parseOffer("2. Ludwig Golebiarz miejscowa 0.80 kg 6 srebrnych monet [x4]")}
   local ranked=b:rank(rows); eq(#ranked,1); eq(ranked[1].name,"ludwig golebiarz")
 end)

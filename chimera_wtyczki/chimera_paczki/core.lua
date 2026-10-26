@@ -1,9 +1,9 @@
--- Chimera Paczki 1.5.8. Transport, navigation and timers are injected.
+-- Chimera Paczki 1.5.14. Transport, navigation and timers are injected.
 return function(data, api, saved)
-  local K = {version = "1.5.13", mode = "stopped", phase = "idle", timers = {}, epoch = 0, sessionNonce=0,
+  local K = {version = "1.5.14", mode = "stopped", phase = "idle", timers = {}, epoch = 0, sessionNonce=0,
     ownSend = false, routes = {}, nodes = {}, titles = {}, rejected = {}, customRoutes = {},
     stats = {delivered = 0, gold = 0, silver = 0, copper = 0, started = nil},
-    config = {delay = 0.35, tempoSource = "walker", timeout = 10, refresh = 30, maxKg = 3.2, strategy = "rate", roam = true, autoLearn=true, autoBackpack=true}}
+    config = {delay = 0.35, tempoSource = "walker", timeout = 10, refresh = 30, maxKg = 3.2, strategy = "local_first", roam = true, autoLearn=true, autoBackpack=true}}
   local reverse = {n="s", s="n", e="w", w="e", ne="sw", nw="se", se="nw", sw="ne", u="d", d="u"}
   local directionNames = {polnoc="n", poludnie="s", wschod="e", zachod="w", gora="u", dol="d",
     ["polnocny-wschod"]="ne", ["polnocny-zachod"]="nw", ["poludniowy-wschod"]="se", ["poludniowy-zachod"]="sw"}
@@ -32,7 +32,7 @@ return function(data, api, saved)
   local function reward(s) return s:match("^adresat wrecza ci .- za trud%.") or s:match("^urzednik wyplaca ci .- za trud%.") end
   function K:parseOffer(text)
     local n,name,kind,kg,pay,count = norm(text):match("^(%d+)%.%s+(.-)%s+(%a+)%s+([%d%.,]+)%s+kg%s+(.-)%s*%[x(%d+)%]$")
-    if not n or not ({miejscowa=true,miedzymiastowa=true,miedzykrainowa=true})[kind] then return nil end
+    if not n or not ({miejscowa=true,miedzymiastowa=true,miedzykrainowa=true,miedzydomenowa=true})[kind] then return nil end
     return {number=tonumber(n), name=name, kind=kind, kg=tonumber((kg:gsub(",", "."))),
       pay=money(pay), count=tonumber(count), raw=trim(text)}
   end
@@ -518,12 +518,16 @@ return function(data, api, saved)
   function K:rank(rows)
     local eligible,unknown,diagnostics,byOffer={},{},{},{}
     local routesByRecipient={}
+    local groups={miejscowa={},miedzymiastowa={}}
     for _,o in ipairs(rows) do
       if api.cooperate then api.cooperate() end
       local detail={number=o.number,name=o.name,kg=o.kg,kind=o.kind,eligible=false}
       diagnostics[#diagnostics+1]=detail;byOffer[o]=detail
       o.route,o.value,o.score,o.eta=nil,nil,nil,nil
-      if type(o.kg)~="number" or o.kg>self.config.maxKg then
+      -- Classify from the server's explicit type BEFORE any route work.
+      if not groups[o.kind] then
+        detail.category="kind";detail.reason="paczki miedzydomenowe sa wylaczone z automatycznego wyboru"
+      elseif type(o.kg)~="number" or o.kg>self.config.maxKg then
         detail.category="weight"
         detail.reason=type(o.kg)=="number" and string.format("waga %.2f kg przekracza limit %.2f kg",o.kg,self.config.maxKg) or "nie rozpoznano wagi paczki"
       elseif type(o.count)~="number" or o.count<=0 then
@@ -532,60 +536,61 @@ return function(data, api, saved)
         detail.category="pay";detail.reason="brak dodatniej nagrody"
       elseif self.rejected[self:offerKey(o)] then
         detail.category="rejected";detail.reason="gra odrzucila te oferte przy poprzedniej probie"
-      else
-        local recipient=norm(o.name)
-        local cached=routesByRecipient[recipient]
-        if not cached then
-          local route,why=self:resolveRoute(o.name)
-          cached={route=route,reason=why};routesByRecipient[recipient]=cached
-        end
-        local route,why=cached.route,cached.reason
-        if not route then
-          unknown[#unknown+1]=o.name
-          detail.category="route";detail.reason=why or "nierozpoznany adresat lub brak drogi"
-        elseif o.kind~="miejscowa" and not route.postal then
-          detail.category="kind";detail.reason="obslugiwane sa paczki miejscowe do NPC oraz doreczenia miedzy pocztami"
+      else groups[o.kind][#groups[o.kind]+1]=o end
+    end
+    for _,kind in ipairs({"miejscowa","miedzymiastowa"}) do
+      local defer=kind=="miedzymiastowa" and #eligible>0
+      for _,o in ipairs(groups[kind]) do
+        if api.cooperate then api.cooperate() end
+        local detail=byOffer[o]
+        if defer then
+          detail.category="deferred";detail.reason="odlozona: najpierw dostepne paczki miejscowe; trasa jeszcze nie liczona"
         else
-          o.route=route;o.value=value(o.pay)
-          detail.cost=route.cost or 2*#route.commands
-          local timed=true
-          if api.estimateTime then
-            local ok,estimate
-            if api.planning and api.planning() then
-              ok=true;estimate=api.estimateTime(o,route,self.source,self:delay())
-            else ok,estimate=pcall(api.estimateTime,o,route,self.source,self:delay()) end
-            if ok and type(estimate)=="table" and type(estimate.seconds)=="number" and
-                estimate.seconds>0 and estimate.seconds<math.huge then
-              o.eta=estimate;o.score=o.value*5/estimate.seconds
-              detail.eta=estimate;detail.etaSeconds=estimate.seconds;detail.silverPerMinute=o.score
-              detail.timeMethod=estimate.method;detail.timeSamples=estimate.samples or 0;detail.timeConfidence=estimate.confidence
-            else
-              timed=false;detail.category="time";detail.reason="nie mozna oszacowac czasu kompletnego kursu"
+          local recipient=norm(o.name)
+          local cached=routesByRecipient[recipient]
+          if not cached then
+            local route,why=self:resolveRoute(o.name)
+            cached={route=route,reason=why};routesByRecipient[recipient]=cached
+          end
+          local route,why=cached.route,cached.reason
+          if not route then
+            unknown[#unknown+1]=o.name
+            detail.category="route";detail.reason=why or "nierozpoznany adresat lub brak drogi"
+          elseif kind=="miedzymiastowa" and not route.postal then
+            detail.category="kind";detail.reason="paczka miedzymiastowa wymaga doreczenia poczta -> poczta"
+          else
+            o.route=route;o.value=value(o.pay)
+            detail.cost=route.cost or 2*#route.commands
+            -- ETA and rate are diagnostics only. Neither can change the
+            -- class/board order or reject an otherwise deliverable parcel.
+            if api.estimateTime then
+              local ok,estimate
+              if api.planning and api.planning() then
+                ok=true;estimate=api.estimateTime(o,route,self.source,self:delay())
+              else ok,estimate=pcall(api.estimateTime,o,route,self.source,self:delay()) end
+              if ok and type(estimate)=="table" and type(estimate.seconds)=="number" and
+                  estimate.seconds>0 and estimate.seconds<math.huge then
+                o.eta=estimate;o.score=o.value*5/estimate.seconds
+                detail.eta=estimate;detail.etaSeconds=estimate.seconds;detail.silverPerMinute=o.score
+                detail.timeMethod=estimate.method;detail.timeSamples=estimate.samples or 0;detail.timeConfidence=estimate.confidence
+              end
             end
-          else o.score=o.value/(detail.cost+4) end
-          if timed then
             detail.category="eligible";detail.eligible=true;detail.score=o.score
             eligible[#eligible+1]=o
           end
         end
       end
     end
-    table.sort(eligible,function(a,b)
-      if self.config.strategy=="light" and a.kg~=b.kg then return a.kg<b.kg end
-      if self.config.strategy=="pay" and a.value~=b.value then return a.value>b.value end
-      if a.score~=b.score then return a.score>b.score end
-      if a.kg~=b.kg then return a.kg<b.kg end
-      return a.number<b.number
-    end)
+    table.sort(eligible,function(a,b) return a.number<b.number end)
     for position,o in ipairs(eligible) do
       local detail=byOffer[o];detail.rank=position
-      detail.reason="dostepna; pozycja rankingu "..position.."; koszt drogi "..tostring(detail.cost)
+      detail.reason="dostepna; "..o.kind.."; pozycja rankingu "..position.."; koszt drogi "..tostring(detail.cost)
       if detail.etaSeconds then
         detail.reason=detail.reason..string.format("; ETA %.1f min; %.2f sr/min; %s (%d pomiarow)",
           detail.etaSeconds/60,detail.silverPerMinute,detail.timeMethod=="learned" and "pomiar + szacunek" or "szacunek",detail.timeSamples)
       end
     end
-    self.offerDiagnostics=diagnostics;self.offersLimit=self.config.maxKg;self.offersStrategy=self.config.strategy
+    self.offerDiagnostics=diagnostics;self.offersLimit=self.config.maxKg;self.offersStrategy="local_first"
     self.offersSource=self.source and {id=self.source.id,name=self.source.name,city=self.source.city} or nil
     return eligible,unknown,diagnostics
   end
@@ -595,9 +600,9 @@ return function(data, api, saved)
     for _,row in ipairs(rows) do
       if row.eligible then accepted=accepted+1 else counts[row.category]=(counts[row.category] or 0)+1 end
     end
-    local labels={weight="waga",route="adresat lub trasa",kind="rodzaj doreczenia",empty="wyczerpane",pay="nagroda",rejected="odmowa gry",time="czas kursu"}
+    local labels={weight="waga",route="adresat lub trasa",kind="rodzaj doreczenia",deferred="po miejscowych",empty="wyczerpane",pay="nagroda",rejected="odmowa gry",time="czas kursu"}
     local reasons={}
-    for _,category in ipairs({"weight","route","kind","empty","pay","rejected","time"}) do
+    for _,category in ipairs({"weight","route","kind","deferred","empty","pay","rejected","time"}) do
       if counts[category] then reasons[#reasons+1]=labels[category]..": "..counts[category] end
     end
     return "Ocena ofert: "..accepted.." z "..#rows.." spelnia warunki"..(#reasons>0 and " ("..table.concat(reasons,", ")..")" or "")..". /paczki oferty — przyczyny i ranking."
@@ -647,7 +652,7 @@ return function(data, api, saved)
     if api.officeWorking and self.source then api.officeWorking(self.source) end
     local o=eligible[1]
     self.selected=o; self.phase="pickup"
-    self:say("Wybieram #"..o.number..": "..o.route.name..", "..o.kg.." kg, "..o.pay.gold.." zl, "..o.pay.silver.." sr, "..o.pay.copper.." md; koszt drogi: "..
+    self:say("Wybieram #"..o.number.." ["..o.kind.."]: "..o.route.name..", "..o.kg.." kg, "..o.pay.gold.." zl, "..o.pay.silver.." sr, "..o.pay.copper.." md; koszt drogi: "..
       (o.route.cost or 2*#o.route.commands)..(o.route.postal and " (do poczty docelowej)." or " (tam i z powrotem)."))
     if o.eta then self:say(string.format("Przewidywany caly kurs: %.1f min; %.2f sr/min (%s; %d pomiarow).",
       o.eta.seconds/60,o.score,o.eta.method=="learned" and "dopasowanie do pomiarow" or "szacunek",o.eta.samples or 0)) end
@@ -1227,9 +1232,9 @@ return function(data, api, saved)
       (self.job and " | paczka: "..self.job.name..(self.job.delivered and " (oddana)" or " (w drodze)") or ""))
   end
   function K:help()
-    self:say("/kurier start [liczba] | stop | wznow | status | trasy | oferty | plecak auto/stop | limit <kg> | tempo <sekundy> | odswiezanie <sekundy> | tryb zarobek/zaplata/lekkie | poczty auto/stop | poczta <miasto|tutaj> | paczka <adresat> | ucz <adresat> | nauka auto/stop | baza | reset")
+    self:say("/kurier start [liczba] | stop | wznow | status | trasy | oferty | plecak auto/stop | limit <kg> | tempo <sekundy> | odswiezanie <sekundy> | tryb miejscowe | poczty auto/stop | poczta <miasto|tutaj> | paczka <adresat> | ucz <adresat> | nauka auto/stop | baza | reset")
     self:say("Pierwszy start: bez paczki, w urzedzie nadania. /paczki npc Imie Nazwisko sprawdza baze /npc i mape. Trasy tekstowe oraz ich nauka zaczynaja sie na poczcie w Nuln.")
-    if api.estimateTime then self:say("Tryb zarobek: zaplata w srebrze na minute calego kursu. NPC: tam i z powrotem; poczta: do placowki docelowej. /paczki oferty pokazuje ETA i pomiary.") end
+    if api.estimateTime then self:say("Kolejnosc: miejscowe, potem miedzymiastowe poczta -> poczta. Miedzydomenowe wylaczone. W grupie: numer tablicy; waga tylko jako limit. ETA i sr/min sa informacyjne.") end
   end
   function K:command(input)
     local verb,arg=trim(input or ""):match("^(%S+)%s*(.-)$")
@@ -1339,9 +1344,11 @@ return function(data, api, saved)
       self.config[key]=n; self.rejected={}; self:save(); self:say("Ustawiono "..key.." = "..n)
       if verb=="limit" and api.resetOffices then api.resetOffices() end
     elseif verb=="tryb" then
-      local strategy=({zarobek="rate",zaplata="pay",lekkie="light"})[norm(arg)]
-      if not strategy then self:say("Tryby: zarobek, zaplata, lekkie."); return end
-      self.config.strategy=strategy; self:save(); self:say("Ustawiono tryb "..norm(arg))
+      if not ({miejscowe=true,zarobek=true,zaplata=true,lekkie=true})[norm(arg)] then
+        self:say("Tryb: miejscowe. Najpierw miejscowe, potem miedzymiastowe poczta -> poczta."); return
+      end
+      self.config.strategy="local_first"; self:save()
+      self:say("Kolejnosc: miejscowe, potem miedzymiastowe poczta -> poczta. Dawne tryby cen i wagi nie zmieniaja tej kolejnosci.")
     else self:help() end
   end
   -- Configuration and recorded text routes; live courses use the separate
@@ -1355,7 +1362,8 @@ return function(data, api, saved)
         local n=tonumber(c[key]); if n and n>0 and n<1000 then K.config[key]=n end
       end
       K.config.delay=math.max(0.15,K.config.delay); K.config.refresh=math.max(5,K.config.refresh)
-      if ({rate=true,pay=true,light=true})[c.strategy] then K.config.strategy=c.strategy end
+      -- Old saved rate/pay/light preferences cannot override local-first policy.
+      K.config.strategy="local_first"
       if type(c.roam)=="boolean" then K.config.roam=c.roam end
       if type(c.autoLearn)=="boolean" then K.config.autoLearn=c.autoLearn end
       if type(c.autoBackpack)=="boolean" then K.config.autoBackpack=c.autoBackpack end

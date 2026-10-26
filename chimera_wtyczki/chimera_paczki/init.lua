@@ -18,7 +18,7 @@ return {
     name = "kurier_paczki",
     title = "Paczki",
     section = "boty",
-    version = "1.5.13",
+    version = "1.5.14",
     related = { "bots", "walker", "automation", "npcs" },
     description = "Kurier: wybor paczek, baza /npc, doreczenia i powrot do urzedu nadania",
     deps = { "bots", "gmcp", "walker", "mapper", "npcs", "locations", "bags", "world" },
@@ -899,7 +899,7 @@ return {
                 crossing.fareDeferred and "schowanie odlozone do rozliczenia paczki" or crossing.fareFinished and "obsluga reszty zakonczona" or
                 crossing.farePending and "oczekiwanie na potwierdzenie" or "etap przed rozliczeniem reszty"
             local rows={
-                {"Wersja Paczek","1.5.13; silnik "..tostring(C.version).."; NPC "..tostring(navigator.version)},
+                {"Wersja Paczek","1.5.14; silnik "..tostring(C.version).."; NPC "..tostring(navigator.version)},
                 {"Stan",C.mode.." / "..C.phase},
                 {"Planowanie",tostring(planning.active).." aktywne; "..tostring(planning.slices).." porcji; "..tostring(planning.yields).." oddan sterowania"},
                 {"Porcja CPU",string.format("maks. %.2f ms od zaladowania",planning.maxSliceMs)},
@@ -915,7 +915,7 @@ return {
                 {"Dane miasta",state.metadataSource or "nie ustalono"},
                 {"Znane miejsca",tostring(state.knownRooms or (route and #route.rooms) or 0)},
             }
-            ctx:report("Paczki / Diagnostyka 1.5.13",rows)
+            ctx:report("Paczki / Diagnostyka 1.5.14",rows)
         end
         -- Update checks may run during a course. The code swap itself needs
         -- fresh, positively clear server state and zero outstanding ownership.
@@ -932,7 +932,7 @@ return {
         ctx:on("chimera.walk.stopped",function() updateWalk=false end)
         local reloadSources
         local updater=require("chimera_paczki.updater").create(ctx,{
-            version="1.5.13",now=timingClock,
+            version="1.5.14",now=timingClock,
             safe=function()
                 if disposed or owned or bots.status() or updateWalk or sessionWait or emergencyLease or
                     next(pendingTravel) or C.pending or C.walking or C.mode=="running" or C.mode=="resting" or
@@ -1004,7 +1004,7 @@ return {
             local detected=bagStatus.detectedPack
             if type(detected)=="table" then detected=detected.name end
             local search=searchStatus(C.job and C.job.route)
-            ctx:table("Boty / Paczki 1.5.13", { { max = 18 }, { color = "gray" } }, {
+            ctx:table("Boty / Paczki 1.5.14", { { max = 18 }, { color = "gray" } }, {
                 { "Sterowanie", { cell("[start]", "/bot paczki", "green"), cell("  [1 paczka]", "/paczki start 1", "green"),
                     cell("  [stop]", "/paczki stop", "orange"), cell("  [wznow]", "/paczki wznow") } },
                 { "Stan", C.mode .. " / " .. C.phase },
@@ -1023,8 +1023,7 @@ return {
                 { "Maksymalna waga", { cell("[-]", string.format("/paczki limit %.1f", math.max(0.1,C.config.maxKg-0.5))),
                     { text=string.format("  %.1f kg  ",C.config.maxKg), color="white" },
                     cell("[+]", string.format("/paczki limit %.1f", math.min(100,C.config.maxKg+0.5))) } },
-                { "Wybor", { cell("[zarobek]", "/paczki tryb zarobek",nil,"Najwyzsza przewidywana zaplata na minute kursu"),
-                    {text=" sr/min  ",color="gray"},cell("[zaplata]", "/paczki tryb zaplata"),cell("  [lekkie]", "/paczki tryb lekkie") } },
+                { "Wybor", "Miejscowe -> miedzymiastowe poczta/poczta; w grupie numer tablicy" },
                 { "Ocena ofert", {cell("[przyczyny i ranking]","/paczki oferty")} },
                 { "Pomiary czasu", tostring(eta.summary(C.actor).samples).." ukonczonych kursow; "..
                     tostring(eta.summary(C.actor).routes).." wariantow trasy tej postaci" },
@@ -1069,14 +1068,14 @@ return {
                     if not C.offerDiagnostics then ctx.log.info("Brak zapisanej oceny pelnej tablicy. Uruchom kuriera na poczcie.");return end
                     local source=C.offersSource or {}
                     local place=source.city or source.name or "urzad nadania"
-                    local mode=({rate="zarobek sr/min",pay="zaplata",light="lekkie"})[C.offersStrategy] or tostring(C.offersStrategy or "")
-                    local rows={{"#","Adresat / kg / ETA kursu / sr/min / podstawa / ocena"},{divider=true}}
+                    local mode=({local_first="miejscowe -> miedzymiastowe poczta/poczta"})[C.offersStrategy] or tostring(C.offersStrategy or "")
+                    local rows={{"#","Rodzaj / adresat / kg / ocena (ETA informacyjnie)"},{divider=true}}
                     for _,offer in ipairs(C.offerDiagnostics) do
                         local method=offer.timeMethod=="learned" and (tostring(offer.timeSamples or 0).." pomiarow + szacunek") or "szacunek"
                         if offer.eta and offer.eta.uncertain then method=method.."; kilka lokacji NPC" end
                         if offer.eta and offer.eta.fareUnknown then method=method.."; przed kosztem biletu" end
                         if offer.eta and offer.eta.searchSeconds then method=method.."; rezerwa szukania adresata" end
-                        local description=offer.name.."; "..(offer.kg and string.format("%.2f kg",offer.kg) or "? kg")
+                        local description=tostring(offer.kind).."; "..offer.name.."; "..(offer.kg and string.format("%.2f kg",offer.kg) or "? kg")
                         if offer.etaSeconds then
                             description=description..string.format("; ETA ~%.1f min; %.2f sr/min; %s; pozycja rankingu %s; koszt drogi %s",
                                 offer.etaSeconds/60,offer.silverPerMinute,method,tostring(offer.rank or "?"),tostring(offer.cost or "?"))
@@ -1085,7 +1084,7 @@ return {
                     end
                     ctx:table("Paczki / Ostatnia ocena ofert — "..place.."; limit "..tostring(C.offersLimit).." kg; "..mode,
                         {{max=4},{max=90}},rows)
-                    ctx.log.info("ETA obejmuje wymagany powrot po paczce do NPC; dostawa pocztowa konczy sie w filii docelowej. Szacunek nie jest gwarantowanym czasem.")
+                    ctx.log.info("Najpierw miejscowe, potem miedzymiastowe poczta -> poczta; miedzydomenowe wylaczone. W grupie: numer tablicy. ETA i sr/min nie decyduja o wyborze.")
                     ctx.log.info("To ocena ostatniej pelnej tablicy; tempo, oferty i pomiary mogly sie od tego czasu zmienic.")
                 elseif action=="baza" then
                     local option=C.norm(input:match("^%S+%s+(%S+)") or "")
@@ -1131,6 +1130,6 @@ return {
             bots.unregister("paczki")
         end)
         return { engine=C, panel=panel, stop=stop, navigator=navigator, offices=offices, inventory=inventory, memory=memory, checkpoint=checkpoint,eta=eta,
-            planner=planner,updater=updater,transportState=loadTransport,sessionWaiting=function() return sessionWait~=nil end, version="1.5.13" }
+            planner=planner,updater=updater,transportState=loadTransport,sessionWaiting=function() return sessionWait~=nil end, version="1.5.14" }
     end,
 }

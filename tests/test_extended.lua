@@ -114,16 +114,16 @@ test("postal handover and mixed reward are counted once before returning",functi
   eq(b.moneyValue(b.stats),897)
   check(e:tick());e:arrive();check(e:tick());eq(b.mode,"stopped")
 end)
-test("ranking uses full round trip and all coin denominations with weight cap",function()
+test("local board order ignores reward and distance while retaining weight cap",function()
   local b,e=fresh();e:route("Johan Kornwalz",10);e:route("Mortimer Blatterburn",100);e:route("Berta Leibentropp",2)
   b.source=copy(office);b.staticSource=false
   local rows={b:parseOffer("1. Johan Kornwalz miejscowa 1.00 kg 10 srebrnych monet [x1]"),
     b:parseOffer("2. Mortimer Blatterburn miejscowa 1.00 kg 1 zlota moneta [x1]"),
     b:parseOffer("3. Berta Leibentropp miejscowa 3.50 kg 15 srebrnych monet [x1]")}
   local ranked=b:rank(rows);eq(#ranked,2);eq(ranked[1].name,"johan kornwalz")
-  b:command("tryb zaplata");ranked=b:rank(rows);eq(ranked[1].name,"mortimer blatterburn")
+  b:command("tryb zaplata");ranked=b:rank(rows);eq(ranked[1].name,"johan kornwalz")
   b:command("limit 3.5");b:command("tryb zarobek");ranked=b:rank(rows)
-  eq(#ranked,3);eq(ranked[1].name,"berta leibentropp")
+  eq(#ranked,3);eq(ranked[1].name,"johan kornwalz")
 end)
 test("number vanished rejection rereads the board without moving",function()
   local b,e=fresh();e:route("Johan Kornwalz",14);start(b,e)
