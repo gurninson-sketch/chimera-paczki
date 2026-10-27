@@ -953,3 +953,12 @@ potwierdzeniu aktualnej postaci i zgodności lokacji z mapą.
 /paczki poczta tutaj przy nieznanej pozycji również odświeża dane.
 /paczki diagnostyka pokazuje ID lokacji GMCP, pokój mapy i zgodność.
 Brak lokacji na mapie jest osobnym problemem; baza adresów nie zastępuje mapy.
+
+ANNIBALE Z BAZY WSPOLNEJ — 1.5.21
+
+Sam potwierdzony adres mola bez tozsamosci NPC nie blokuje juz
+przedstawienia sie obecnym postaciom. Kurier sprawdza pelna tozsamosc
+Annibale przez aktualne GMCP i baze /npc przed oddaniem paczki.
+Zmiana obecnych NPC pozwala ponowic przedstawienie, najwyzej raz na 10 s.
+Sam opis, obcy NPC ani gracz nie uprawniaja do oddania. Bot pozostaje
+na molo; nie kupuje biletu i nie wsiada na statek. STOP anuluje oczekiwanie.

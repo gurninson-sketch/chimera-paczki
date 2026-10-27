@@ -6,6 +6,8 @@
 package.path="tests/?.lua;"..package.path
 local T=require("support.harness")
 local M=T.M
+local ROOT=arg[0]:gsub("\\","/"):match("^(.*)/tests/test_periodic_npc_native%.lua$") or ".."
+local noCatalogue=false
 local IDS={"907327356ecc2f87","a000000000000002","945da22478958071","a000000000000004","200aff4d957642cd"}
 local NAMES={"Glowna sala poczty w Krainie Zgromadzenia","Ulica","Na kamiennym molo","Skrzyzowanie","Poczta"}
 local LINKS={ [1]={wyjscie=2},[2]={poczta=1,n=3,e=4},[3]={s=2},[4]={w=2,e=5},[5]={w=4} }
@@ -20,7 +22,7 @@ T.module("test.world.courier",function()
     return {name="world",setup=function()
         return {room=function(id) return worldRooms[id] end,terrains=function() return {} end,
             marks=function() return {} end,gates=function() return {} end,version=function() return "test-courier" end,
-            npcs=function() return {
+            npcs=function() if noCatalogue then return {} end;return {
                 {name="Annibale",short="testowy kapitan",title="Annibale Malacresta Lettore, testowy kapitan",room=IDS[3]},
             } end}
     end}
@@ -28,7 +30,7 @@ end)
 local function read(path) local f=assert(io.open(path,"rb"));local s=f:read("*a");f:close();return s end
 local function prepare()
     for _,name in ipairs({"init.lua","core.lua","routes.lua","new_routes.lua","npc.lua","travel.lua","offices.lua","scope.lua","road.lua","ferry.lua","journey.lua","transport_data.lua","inventory.lua","memory.lua","path.lua","postal.lua","checkpoint.lua","escape.lua","recovery.lua","eta.lua","karak_transport.lua","city.lua","city_data.lua","planner.lua","updater.lua"}) do
-        M.write_file("chimera_wtyczki/chimera_paczki/"..name,read("../chimera-native/chimera_wtyczki/chimera_paczki/"..name))
+        M.write_file("chimera_wtyczki/chimera_paczki/"..name,read(ROOT.."/chimera_wtyczki/chimera_paczki/"..name))
     end
     local area=M.empty_map("Test KZ")
     for i,id in ipairs(IDS) do addRoom(i);setRoomIDbyHash(i,id);setRoomName(i,NAMES[i]);setRoomArea(i,area);setRoomCoordinates(i,i,0,0) end
@@ -62,7 +64,8 @@ local function info(i)
     local r=worldRooms[IDS[i]]
     return {id=r.id,name=r.name,area=r.area,area_id=r.area_id,indoors=1,exits=r.exits}
 end
-local function start(showNpc,recipient)
+local function start(showNpc,recipient,roomOnly)
+    noCatalogue=roomOnly==true
     local app=T.start({"chimera.core.cli","chimera.gmcp","test.world.courier","chimera.mapper","chimera.terrain",
         "chimera.locations","chimera.walker","chimera.npcs","chimera.hints","chimera.bags","chimera.events",
         "chimera.numpad","chimera.bots"},nil,prepare)
@@ -98,6 +101,7 @@ local function start(showNpc,recipient)
     record.api.engine.config.autoBackpack=false;record.api.engine:save()
     M.packet("Char.Info",{name="Testowicz",id="e1-courier"})
     M.packet("Char.Vitals",{hp=100,mana=100,fatigue=10})
+    if roomOnly then T.ok(record.api.memory.remember({recipient="Annibale Malacresta Lettore",roomHash=IDS[3],map=3,verified=true,handover=true,reward=true,postal=false})) end
     return app,app.loader.records.bots.api,record.api.engine,record.api.navigator,server
 end
 local function nextSend(limit)
@@ -243,5 +247,45 @@ T.test("a saved captain job reconnects and resumes waiting at the jetty without 
     T.eq(IDS[1],C.source.id);T.eq(2,C.stats.delivered);T.eq(3,C.stopAt)
     captain();T.eq("przedstaw sie",nextSend());T.eq("oddaj paczke",nextSend())
     finishDelivery(C,bots);T.eq(3,C.stats.delivered);T.eq(27,C.stats.silver);T.eq(0,#app.errors,M.text())
+end)
+local function anonymousCaptain(kind,room)
+    M.packet("Chimera.Room.Entities",{room=room or IDS[3],entities={
+        {id="new-captain",name="wysoki kruczowlosy mezczyzna",kind=kind or "npc",relation="neutral"}}})
+end
+T.test("room-only shared Annibale address introduces an anonymous captain at the jetty and waits for verified identity",function()
+    local app,bots,C,nav=start(false,nil,true);waitAtDock(C)
+    T.eq(true,C.job.route.roomOnlyIdentity);T.eq(nil,C.job.route.npcId)
+    local before=#M.sent;M.advance(20);noJourneyOrHandoverSince(before)
+    anonymousCaptain("player");M.advance(.2);T.eq(0,countCommand("przedstaw sie"))
+    anonymousCaptain("npc",IDS[2]);M.advance(.2);T.eq(0,countCommand("przedstaw sie"))
+    anonymousCaptain();T.eq(1,countCommand("przedstaw sie"))
+    anonymousCaptain();M.advance(2);T.eq(0,countCommand("oddaj paczke"));T.eq(1,countCommand("przedstaw sie"))
+    M.line("Wysoki kruczowlosy mezczyzna przedstawia sie jako:")
+    M.line("Annibale Malacresta Lettore, kapitan, czlowiek.")
+    captain();T.eq("przedstaw sie",nextSend());T.eq("oddaj paczke",nextSend())
+    finishDelivery(C,bots);T.eq(1,C.stats.delivered);T.eq(1,countCommand("oddaj paczke"));T.eq(0,#app.errors,M.text())
+end)
+T.test("a room-only captain probe cancels on STOP and cannot give to an unrelated NPC",function()
+    local app,bots,C,nav=start(false,nil,true);waitAtDock(C)
+    anonymousCaptain();T.eq(1,countCommand("przedstaw sie"))
+    M.line("Wysoki kruczowlosy mezczyzna przedstawia sie jako:")
+    M.line("Antonio Inny, marynarz, czlowiek.")
+    M.packet("Chimera.Room.Entities",{room=IDS[3],entities={{id="other",name="Antonio",kind="npc",relation="neutral"}}})
+    M.advance(15);T.eq(0,countCommand("oddaj paczke"));T.eq("waitingNpc",C.phase)
+    M.input("/bot stop");local before=#M.sent;captain();M.advance(20)
+    T.eq(before,#M.sent);T.eq(0,C.stats.delivered);T.eq(false,nav.inProgress);T.eq(0,#app.errors,M.text())
+end)
+T.test("room-only berth probes a newly arriving captain even when other NPCs remain, without flooding introductions",function()
+    local app,bots,C,nav=start(false,nil,true);waitAtDock(C)
+    local other={id="dock-worker",name="stary marynarz",kind="npc",relation="neutral"}
+    M.packet("Chimera.Room.Entities",{room=IDS[3],entities={other}})
+    T.eq(1,countCommand("przedstaw sie"))
+    local newcomer={id="new-captain",name="wysoki kruczowlosy mezczyzna",kind="npc",relation="neutral"}
+    for _=1,10 do M.packet("Chimera.Room.Entities",{room=IDS[3],entities={other,newcomer}}) end
+    M.advance(5);T.eq(1,countCommand("przedstaw sie"));T.eq(0,countCommand("oddaj paczke"))
+    M.advance(16);T.eq(2,countCommand("przedstaw sie"));T.eq(0,countCommand("oddaj paczke"))
+    M.advance(30);T.eq(2,countCommand("przedstaw sie"))
+    M.input("/bot stop");local before=#M.sent;captain();M.advance(20)
+    T.eq(before,#M.sent);T.eq(0,#app.errors,M.text())
 end)
 T.run()

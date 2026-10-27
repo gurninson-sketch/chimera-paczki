@@ -7,8 +7,8 @@ local M=T.M
 local json=require("chimera.core.json")
 local updater=dofile("../chimera-native/chimera_wtyczki/chimera_paczki/updater.lua")
 local HOME="6f2c03461c2f1438"
-local VERSION="1.5.20"
-local NEXT="1.5.21"
+local VERSION="1.5.21"
+local NEXT="1.5.22"
 local REPO="https://github.com/gurninson-sketch/chimera-paczki"
 local function read(path)
     local file=assert(io.open(path,"rb"));local body=file:read("*a");file:close();return body
@@ -63,8 +63,8 @@ end
 local function release(mutate)
     local files={}
     for name,source in pairs(sources) do files[name]=source end
-    files["init.lua"]=files["init.lua"]:gsub("1%.5%.20",NEXT)
-    files["updater.lua"]=files["updater.lua"]:gsub("1%.5%.20",NEXT)
+    files["init.lua"]=files["init.lua"]:gsub("1%.5%.21",NEXT)
+    files["updater.lua"]=files["updater.lua"]:gsub("1%.5%.21",NEXT)
     if mutate then mutate(files) end
     local body=json.encode({schema=1,version=NEXT,files=files})
     return body,{schema=1,version=NEXT,bundle={url=REPO.."/releases/download/v"..NEXT.."/chimera-paczki-runtime.json",bytes=#body,sha256=sha(body)}}
@@ -164,7 +164,7 @@ T.test("native queued stage mutation is detected before the live folder is repla
     T.eq(NEXT,api.updater.status().pending)
     local root=M.home.."/chimera_paczki_updates"
     local stage
-    for name in lfs.dir(root) do if name:match("^v1%.5%.21%-%d") then stage=root.."/"..name end end
+    for name in lfs.dir(root) do if name:match("^v1%.5%.22%-%d") then stage=root.."/"..name end end
     T.ok(stage,"queued release stage exists outside plugin discovery")
     local file=assert(io.open(stage.."/core.lua","ab"));file:write("\n-- edited after download\n");file:close()
     M.packet("Chimera.Combat.State",{room=HOME,primary="",relations={}})

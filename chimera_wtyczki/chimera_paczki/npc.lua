@@ -916,19 +916,32 @@ return function(ctx, bots, gmcp_api, walker, mapper, npcs, locations, sendProbe,
         if periodic_ready(op.route, snapshot) then finish(op, true); return end
         local here, proof = api.current(), periodic_proof(op.route)
         if type(snapshot) ~= "table" or snapshot.room ~= here.id then return end
-        local count, player = 0, false
+        -- Shared addresses may contain only a server-confirmed delivery room.
+        -- At that exact berth, introduce to the anonymous NPCs so native /npc
+        -- can learn the captain's full identity. This is a probe, never proof
+        -- for handing over a parcel or permission to follow a ship.
+        local roomOnly = op.route.roomOnlyIdentity and not route_key(proof)
+        local count, player, candidates = 0, false, {}
         for _, entity in ipairs(snapshot.entities or {}) do
-            if norm(proof.npcShort) ~= "" and norm(entity.name) == norm(proof.npcShort) then
+            if roomOnly then
+                if entity.kind == "npc" and entity.relation ~= "ally" then
+                    count = count + 1
+                    candidates[#candidates + 1] = tostring(entity.id or "") .. ":" .. norm(entity.name)
+                end
+            elseif norm(proof.npcShort) ~= "" and norm(entity.name) == norm(proof.npcShort) then
                 if entity.kind == "player" then player = true
                 elseif entity.kind == "npc" and entity.relation ~= "ally" then count = count + 1 end
             end
         end
         if count == 0 and not player then op.periodicIntroduced = nil end
-        if count ~= 1 or player or op.periodicIntroduced or op.periodicProbeBlocked then return end
+        table.sort(candidates)
+        local presence = roomOnly and table.concat(candidates, "|") or true
+        if count == 0 or (not roomOnly and count ~= 1) or player or
+            op.periodicIntroduced == presence or op.periodicProbeBlocked then return end
         -- Introduce once for this observed presence, with a rate limit even
         -- if rapid snapshots alternate absent/present. A descriptor never
         -- completes the wait or authorizes handing over a parcel.
-        op.periodicIntroduced, op.periodicProbeBlocked = true, true
+        op.periodicIntroduced, op.periodicProbeBlocked = presence, true
         local sent, result = pcall(sendProbe, "przedstaw sie")
         if operation ~= op then return end
         if not sent or result == false then finish(op, false, "nie udalo sie przedstawic adresatowi"); return end
