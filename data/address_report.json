@@ -1,0 +1,23 @@
+{
+  "delivery_count_rule": "maximum_not_sum",
+  "format": "chimera_paczki_address_report",
+  "identity_conflicts": [],
+  "locations": 69,
+  "multiple_location_recipients": 1,
+  "recipients": 63,
+  "sources": [
+    {
+      "file": "paczki_groro.json",
+      "recipients": 63
+    },
+    {
+      "file": "paczki_morrid.json",
+      "recipients": 52
+    },
+    {
+      "file": "paczki_yarrim.json",
+      "recipients": 62
+    }
+  ],
+  "version": 1
+}

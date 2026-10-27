@@ -90,6 +90,165 @@ local function same_record(a,b)
     return true
 end
 
+-- Public, data-only shared address catalogue. Code updates remain independent.
+local SHARED_URL="https://raw.githubusercontent.com/gurninson-sketch/chimera-paczki/main/data/addresses.json"
+local SHARED_LIMIT=4*1024*1024
+local function sharedFs()
+    local fs=require("chimera.core.fs")
+    return {exists=fs.exists,isDir=fs.is_dir,mkdir=fs.mkdir,remove=os.remove,
+        isLink=function(path) return type(lfs)=="table" and type(lfs.symlinkattributes)=="function" and lfs.symlinkattributes(path,"mode")=="link" end,
+        read=function(path,limit)
+            local file=io.open(path,"rb");if not file then return nil end
+            local body=file:read(limit and limit+1 or "*a");file:close();return body
+        end,
+        write=function(path,body)
+            local file=io.open(path,"wb");if not file then return false end
+            local wrote=file:write(body);local closed=file:close();return wrote~=nil and closed~=nil
+        end}
+end
+local function sharedPath(value)
+    if type(value)~="string" or value=="" or value:find("[%z\1-\31\127]") then return nil end
+    value=value:gsub("\\","/"):gsub("/+$","")
+    if not (value:sub(1,1)=="/" or value:match("^%a:/")) then return nil end
+    for part in value:gmatch("[^/]+") do if part=="." or part==".." then return nil end end
+    return value
+end
+local function createSharedSync(memory,ctx,options)
+    options=options or {}
+    local json=options.json or require("chimera.core.json")
+    local fs=options.fs or sharedFs()
+    local now=options.now or function() return type(getEpoch)=="function" and getEpoch() or os.time() end
+    local setting=ctx:saved("baza_synchronizacja",{})
+    local enabled=type(setting)~="table" or setting.enabled~=false
+    local home=sharedPath(options.home or ctx.app and ctx.app.paths and ctx.app.paths.home)
+    local work=home and home.."/chimera_paczki_updates"
+    local instance=tostring({}):gsub("[^%w]","").."-"..tostring(math.floor(now()*1000000))
+    local disposed,sequence,waiting,pending=false,0,nil,nil
+    local timeout,retry,start,periodic
+    local retired={}
+    local lastCheck,lastImport,lastBackup,lastSummary,reason
+    local controller={url=SHARED_URL}
+    local function log(message) ctx.log.info("Wspolna baza Paczek: "..message) end
+    local function cancel(id) if id then ctx:cancel(id) end end
+    local function remove(path) if path then pcall(fs.remove,path) end end
+    local function finish(message)
+        if waiting then retired[waiting.path]=true;remove(waiting.path) end
+        waiting=nil;cancel(timeout);timeout=nil
+        if message then reason=message;log(message) end
+    end
+    local function pathOK()
+        return home and work and fs.isDir(home) and not fs.isLink(work)
+    end
+    local function validate(package)
+        if type(package)~="table" or package.format~="chimera_paczki_baza" or package.version~=1 or
+            type(package.memory)~="table" or package.memory.schema~=SCHEMA or type(package.memory.records)~="table" then
+            return nil,"nieprawidlowy format wspolnej bazy"
+        end
+        local clean={schema=SCHEMA,records={}}
+        for key,record in pairs(package.memory.records) do
+            local value,why=clean_record(key,record,true)
+            if not value then return nil,why end
+            local existing=memory.find(value.recipient)
+            if existing and existing.postal~=value.postal then return nil,"sprzeczny rodzaj adresata: "..value.recipient end
+            clean.records[key]=value
+        end
+        return clean
+    end
+    local apply
+    local function defer()
+        cancel(retry)
+        retry=ctx:timer(15,function() retry=nil;if not disposed then apply() end end)
+    end
+    apply=function()
+        if disposed or not pending then return end
+        if pending.automatic and not enabled then pending=nil;return end
+        if not pathOK() then pending=nil;finish("nieprawidlowy katalog danych; baza lokalna zachowana");return end
+        local ok,ready,why=pcall(options.safe or function() return false end)
+        if not ok or ready~=true then reason=why or "czekam na zatrzymanie kuriera";defer();return end
+        local candidate=pending
+        -- Save a separate, allowlisted snapshot before the merge. The backup
+        -- is outside plugin discovery and contains no course/account state.
+        sequence=sequence+1
+        local backup=work.."/addresses-backup-"..instance.."-"..sequence..".json"
+        if fs.exists(backup) or fs.isLink(backup) then pending=nil;finish("plik kopii juz istnieje; baza lokalna zachowana");return end
+        local encoded,body=pcall(json.encode,{format="chimera_paczki_baza",version=1,memory=memory.exportState()},true)
+        local wrote,saved=false,false
+        if encoded and type(body)=="string" then wrote,saved=pcall(fs.write,backup,body.."\n") end
+        if not wrote or saved~=true then remove(backup);pending=nil;finish("nie zapisano kopii bazy; import anulowany");return end
+        lastBackup=backup
+        local imported,summary=memory.importState(candidate.snapshot)
+        pending=nil;cancel(retry);retry=nil
+        if not imported then finish("nie zaimportowano: "..tostring(summary).."; kopia: "..backup);return end
+        reason=nil;lastImport=now();lastSummary=summary
+        log("scalono: dodano "..summary.added..", uzupelniono "..summary.updated..", bez zmian "..summary.unchanged.."; razem "..summary.total..". Kopia: "..backup)
+    end
+    function controller.check(automatic)
+        if disposed or (automatic and not enabled) then return false end
+        if waiting or pending then if not automatic then log("pobieranie lub import juz oczekuje") end;return false end
+        if not pathOK() or not fs.mkdir(work) or fs.isLink(work) then finish("nie mozna przygotowac katalogu pobierania");return false end
+        sequence=sequence+1
+        local path=work.."/addresses-download-"..instance.."-"..sequence..".tmp"
+        if fs.exists(path) or fs.isLink(path) then finish("plik pobierania juz istnieje");return false end
+        waiting={path=path,automatic=automatic==true};reason=nil;lastCheck=now()
+        timeout=ctx:timer(60,function() timeout=nil;if not disposed and waiting then finish("timeout pobierania (60 s); baza lokalna zachowana") end end)
+        local ok,result=pcall(options.downloadFile or downloadFile,path,SHARED_URL)
+        if not ok or result==false then finish("nie mozna rozpoczac pobierania; baza lokalna zachowana");return false end
+        if not automatic then log("pobieram katalog adresow z GitHuba") end
+        return true
+    end
+    ctx:on("sysDownloadDone",function(_,path,size)
+        path=sharedPath(path)
+        if path and retired[path] then retired[path]=nil;remove(path);return end
+        if disposed or not waiting or waiting.path~=path then return end
+        local request=waiting;waiting=nil;cancel(timeout);timeout=nil
+        if not pathOK() or fs.isDir(path) or fs.isLink(path) or not fs.exists(path) or
+            (type(size)=="number" and size>SHARED_LIMIT) then remove(path);finish("nieprawidlowy plik lub przekroczony limit 4 MiB; baza lokalna zachowana");return end
+        local read,body=pcall(fs.read,path,SHARED_LIMIT);remove(path)
+        if not read or type(body)~="string" or #body==0 or #body>SHARED_LIMIT then finish("nie mozna odczytac bazy lub przekroczony limit 4 MiB");return end
+        local decoded,package=pcall(json.decode,body)
+        if not decoded then finish("nieprawidlowy JSON; baza lokalna zachowana");return end
+        local snapshot,why=validate(package)
+        if not snapshot then finish(why.."; baza lokalna zachowana");return end
+        pending={snapshot=snapshot,automatic=request.automatic};apply()
+    end)
+    ctx:on("sysDownloadError",function(_,message,path)
+        path=sharedPath(path)
+        if path and retired[path] then retired[path]=nil;remove(path);return end
+        if not disposed and waiting and waiting.path==path then finish("blad pobierania: "..tostring(message).."; baza lokalna zachowana") end
+    end)
+    function controller.setEnabled(value)
+        if disposed then return false end
+        value=value==true
+        local ok,saved=pcall(ctx.save,ctx,"baza_synchronizacja",{schema=1,enabled=value})
+        if not ok or saved==false then log("nie zapisano ustawienia synchronizacji");return false end
+        enabled=value
+        if not enabled then
+            if waiting and waiting.automatic then finish(nil) end
+            if pending and pending.automatic then pending=nil;cancel(retry);retry=nil end
+        end
+        log("automatyczne pobieranie "..(enabled and "wlaczone" or "wylaczone"));return true
+    end
+    function controller.status()
+        return {enabled=enabled,busy=waiting~=nil,pending=pending~=nil,reason=reason,url=SHARED_URL,
+            lastCheck=lastCheck,lastImport=lastImport,backup=lastBackup,summary=lastSummary,count=memory.count()}
+    end
+    function controller.show()
+        local status=controller.status()
+        log("auto: "..(enabled and "on" or "off").."; adresatow "..status.count..
+            (status.busy and "; pobieranie" or "")..(status.pending and "; import oczekuje" or "")..
+            (reason and "; "..reason or "")..". /paczki baza aktualizuj | /paczki baza synchronizacja on|off")
+    end
+    start=ctx:timer(45,function() start=nil;controller.check(true) end)
+    periodic=ctx:timer(6*60*60,function() controller.check(true) end,true)
+    ctx:cleanup(function()
+        disposed=true;cancel(timeout);cancel(retry);cancel(start);cancel(periodic)
+        remove(waiting and waiting.path)
+        for path in pairs(retired) do remove(path) end
+        waiting=nil;pending=nil
+    end)
+    return controller
+end
+
 return function(saved,opts)
     opts=opts or {}
     local records={}
@@ -217,5 +376,6 @@ return function(saved,opts)
     function api.count()
         local count=0;for _ in pairs(records) do count=count+1 end;return count
     end
+    function api.createSharedSync(ctx,options) return createSharedSync(api,ctx,options) end
     return api
 end

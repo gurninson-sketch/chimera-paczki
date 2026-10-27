@@ -1,0 +1,29 @@
+name: Consolidate addresses
+on:
+  push:
+    branches: [main]
+    paths: ["data/address_sources/*.json", "tools/consolidate_addresses.py"]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: shared-addresses
+  cancel-in-progress: false
+jobs:
+  consolidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Consolidate verified game addresses
+        run: python3 tools/consolidate_addresses.py
+      - name: Validate source exports and merger
+        run: python3 -m unittest discover -s tests -p test_consolidate_addresses.py
+      - name: Save consolidated catalogue
+        run: |
+          git add data/addresses.json data/address_report.json
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'Consolidate courier address snapshots'
+            git push origin HEAD:main
+          fi

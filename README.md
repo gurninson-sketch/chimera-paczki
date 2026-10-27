@@ -9,7 +9,7 @@ Pobierz [najnowsze wydanie](https://github.com/gurninson-sketch/chimera-paczki/r
 1. W Mudlecie wpisz `/bot stop` i poczekaj na zakończenie trwającej operacji ruchu lub plecaka.
 2. Zastąp cały folder `<profil>/chimera_wtyczki/chimera_paczki` folderem z ZIP-a (25 plików Lua).
 3. Wpisz `/przeladuj` i zaczekaj na zakończenie ładowania.
-4. Sprawdź `/paczki diagnostyka` — wersja 1.5.18. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
+4. Sprawdź `/paczki diagnostyka` — wersja 1.5.19. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
 
 Dotychczasowe wersje do 1.5.12 wymagają tego jednorazowego skopiowania kodu, aby otrzymać aktualizator. Powtórz instalację osobno na każdym profilu.
 
@@ -79,6 +79,23 @@ Poniżej dojścia od miejscowej poczty według danych mapy Chimery. Samą obsłu
 | Crimmor | `wyjscie,s,bank` | `wyjscie,n,poczta` |
 
 W Altdorfie mapa zawiera **Salę główną Banku Imperialnego**; nie potwierdzono punktu pocztowego, od którego można podać dojście. **Athel Loren jest dostępne wyłącznie dla leśnych elfów** i nie jest traktowane jako bank ogólnodostępny. Kantory są osobnymi lokacjami i nie oznaczają potwierdzonej możliwości denominacji.
+
+## Wspólna baza adresów (od 1.5.19)
+
+Publiczny katalog [data/addresses.json](data/addresses.json) scala trzy zaakceptowane eksporty: Groro, Yarrim i Morrid. Początkowo obejmuje **63 adresatów i 69 lokalizacji**, bez konfliktów tożsamości. Źródła znajdują się w [data/address_sources](data/address_sources), a podsumowanie w [data/address_report.json](data/address_report.json). Są to potwierdzone adresy gry; wpis w katalogu nie potwierdza aktualnej obecności wędrującego NPC.
+
+| Komenda | Działanie |
+| --- | --- |
+| `/paczki baza aktualizuj` | Pobiera wspólny katalog z GitHuba i scala go z lokalną bazą |
+| `/paczki baza status` | Pokazuje stan pobierania i importu |
+| `/paczki baza synchronizacja on` | Włącza automatyczne sprawdzanie |
+| `/paczki baza synchronizacja off` | Wyłącza automatyczne sprawdzanie |
+
+Automatyczne sprawdzanie jest domyślnie włączone: po 45 sekundach od załadowania dodatku i co 6 godzin. Pobieranie może odbywać się podczas pracy, ale import czeka na zatrzymanie botów i zakończenie operacji z paczką, ruchem oraz pojemnikami. Przed scaleniem powstaje kopia lokalnej bazy w `chimera_paczki_updates/addresses-backup-*.json`. Lokalne odkrycia są zachowywane, wielokrotny import nie duplikuje adresatów ani lokalizacji. Liczniki dostaw są scalane przez maksimum, bez sumowania już skopiowanych doręczeń. Pełna baza `/npc`, mapa i nagrywane trasy nie są częścią katalogu.
+
+Nowe odkrycia dodajesz przez `/paczki baza eksport paczki_profil.json`, a następnie wgrywasz ten plik jako osobne źródło do `data/address_sources/`. Workflow **Consolidate addresses** waliduje wszystkie eksporty i aktualizuje wspólny katalog. Błędny eksport zatrzymuje scalanie; konflikt tożsamości NPC jest raportowany, bez arbitralnego wyboru postaci. Narzędzie można też uruchomić lokalnie: `python tools/consolidate_addresses.py`.
+
+Bot pobiera dane z GitHuba; eksporty do repozytorium dodajesz samodzielnie. Kod nie zawiera tokenu GitHuba. Globalne wycofywanie błędnych wpisów z baz profili nie jest jeszcze obsługiwane.
 
 ## Zapisane dane
 

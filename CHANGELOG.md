@@ -1,5 +1,13 @@
 # Zmiany
 
+## 1.5.19
+
+- Publiczna wspólna baza: 63 adresatów i 69 lokalizacji z trzech zatwierdzonych eksportów Groro, Yarrim i Morrid.
+- Walidacja źródeł i deterministyczne scalanie katalogu przez GitHub Actions; raport konfliktów tożsamości.
+- `/paczki baza aktualizuj`, `baza status`, `baza synchronizacja on|off`; automatyczne pobieranie po starcie i co 6 godzin.
+- Import przy zatrzymanych botach i po rozliczeniu operacji, kopia przed scaleniem i zachowanie lokalnych odkryć.
+- Publikacja źródeł zatwierdzona przez użytkownika; bot pobiera katalog, a nowe eksporty dodaje się do repozytorium samodzielnie.
+
 ## 1.5.18
 
 - Zmiana numeracji podczas odbioru: paczka dla innego adresata zostaje zwrócona bez wyznaczania jego trasy, także jeśli adres jest znany. Własne potwierdzenie zwrotu odświeża tablicę; brak blokady adresata po takim zwrocie.

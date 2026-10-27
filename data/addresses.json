@@ -1,0 +1,702 @@
+{
+  "format": "chimera_paczki_baza",
+  "memory": {
+    "records": {
+      "andre saufer": {
+        "count": 3,
+        "last": 1793085545,
+        "name": "Andre",
+        "npcId": "9976961a",
+        "postal": false,
+        "recipient": "Andre Saufer",
+        "roomHashes": [
+          "c013e87a2ee3a13e"
+        ],
+        "short": "sympatyczny gruby mezczyzna",
+        "title": "Andre Saufer, Piwowar, czlowiek"
+      },
+      "annibale malacresta lettore": {
+        "count": 8,
+        "last": 1792853626,
+        "postal": false,
+        "recipient": "Annibale Malacresta Lettore",
+        "roomHashes": [
+          "945da22478958071"
+        ]
+      },
+      "antonio gantucci": {
+        "count": 19,
+        "last": 1792921032,
+        "name": "Antonio",
+        "npcId": "0a8cc1ee",
+        "postal": false,
+        "recipient": "Antonio Gantucci",
+        "roomHashes": [
+          "14c45ce9beeb1cb3"
+        ],
+        "short": "stary ogorzaly mezczyzna",
+        "title": "Antonio Gantucci, wlasciciel tego skladu, Tileanczyk"
+      },
+      "athelstan shergison": {
+        "count": 9,
+        "last": 1792892246,
+        "name": "Athelstan",
+        "npcId": "97b0aacc",
+        "postal": false,
+        "recipient": "Athelstan Shergison",
+        "roomHashes": [
+          "fbf54bc84d69fa28"
+        ],
+        "short": "rzutki kedzierzawy niziolek",
+        "title": "Athelstan Shergison, Szeryf Krainy Zgromadzenia"
+      },
+      "benitto blanca": {
+        "count": 8,
+        "last": 1792911183,
+        "name": "Benitto",
+        "npcId": "6ef4ff96",
+        "postal": false,
+        "recipient": "Benitto Blanca",
+        "roomHashes": [
+          "c9bc3ab176b8f4e9"
+        ],
+        "short": "jednooki opalony mezczyzna",
+        "title": "Benitto Blanca, znawca broni, mezczyzna"
+      },
+      "berta leibentropp": {
+        "count": 9,
+        "last": 1792910218,
+        "name": "Berta",
+        "npcId": "4fe1ae4f",
+        "postal": false,
+        "recipient": "Berta Leibentropp",
+        "roomHashes": [
+          "44becc60419dd088"
+        ],
+        "short": "tega kobieta",
+        "title": "Berta Leibentropp, Wlascicielka 'Czerwonego Sandalka', kobieta"
+      },
+      "bhorin syn bhardina": {
+        "count": 16,
+        "last": 1792918830,
+        "name": "Bhorin",
+        "npcId": "d32ebbec",
+        "postal": false,
+        "recipient": "Bhorin syn Bhardina",
+        "roomHashes": [
+          "33c4702fa55e1d97"
+        ],
+        "short": "dostojny kruczowlosy krasnolud",
+        "title": "Bhorin syn Bhardina, Starszy Krolewskiego Rodu Khamanow z Karak Varn, krasnolud"
+      },
+      "boreg khrazaksson": {
+        "count": 25,
+        "last": 1792921285,
+        "name": "Boreg",
+        "npcId": "645df9cc",
+        "postal": false,
+        "recipient": "Boreg Khrazaksson",
+        "roomHashes": [
+          "b86129bbefdb9e71"
+        ],
+        "short": "niski spocony krasnolud",
+        "title": "Boreg Khrazaksson z Karak Izor"
+      },
+      "bruno rottel": {
+        "count": 1,
+        "last": 1792907874,
+        "postal": false,
+        "recipient": "bruno rottel",
+        "roomHashes": [
+          "38d3ec368fe10ff5"
+        ]
+      },
+      "elmer golebiarz": {
+        "count": 6,
+        "last": 1792865839,
+        "name": "Elmer",
+        "npcId": "dc558c23",
+        "postal": false,
+        "recipient": "Elmer Golebiarz",
+        "roomHashes": [
+          "a1507dae053d9a0d"
+        ],
+        "short": "siwiejacy niziolek",
+        "title": "Elmer Golebiarz z Krainy Zgromadzenia, niziolek"
+      },
+      "franz eisen": {
+        "count": 6,
+        "last": 1793083341,
+        "name": "Franz",
+        "npcId": "48971fb1",
+        "postal": false,
+        "recipient": "Franz Eisen",
+        "roomHashes": [
+          "6124a4798c85fcca"
+        ],
+        "short": "stateczny zmeczony mezczyzna",
+        "title": "Franz Eisen, Czcigodny Burmistrz Ubersreik, Przewodniczacy Rady Miejskiej"
+      },
+      "fryderik miecznik": {
+        "count": 15,
+        "last": 1792920196,
+        "postal": false,
+        "recipient": "Fryderik Miecznik",
+        "roomHashes": [
+          "d6b592db212d39b3"
+        ]
+      },
+      "giacomo giandolimento": {
+        "count": 7,
+        "last": 1792870375,
+        "name": "Giacomo",
+        "npcId": "0a981baa",
+        "postal": false,
+        "recipient": "Giacomo Giandolimento",
+        "roomHashes": [
+          "7d5dbfe647ec219b"
+        ],
+        "short": "otyly niski mezczyzna",
+        "title": "Don Giacomo Giandolimento, sprzedawca wyrobow ekskluzywnych, Tileanczyk"
+      },
+      "gottschalk dahrendorf": {
+        "count": 1,
+        "last": 1792846768,
+        "name": "Gottschalk",
+        "npcId": "fa412a4a",
+        "postal": false,
+        "recipient": "Gottschalk Dahrendorf",
+        "roomHashes": [
+          "1fd1c70e561efc20"
+        ],
+        "short": "pucolowaty piegowaty niziolek",
+        "title": "Gottschalk Dahrendorf, Krawiec Krainy Zgromadzenia, niziolek"
+      },
+      "henry schmidt": {
+        "count": 7,
+        "last": 1792918726,
+        "name": "Henry",
+        "npcId": "e54489e4",
+        "postal": false,
+        "recipient": "Henry Schmidt",
+        "roomHashes": [
+          "7636783630d8846d"
+        ],
+        "short": "smukly smagly mezczyzna",
+        "title": "Henry Schmidt, Sekretarz Imperialnego Biura Kartograficznego"
+      },
+      "joachim eisenberg": {
+        "count": 5,
+        "last": 1793082450,
+        "name": "Joachim",
+        "npcId": "a35ef03f",
+        "postal": false,
+        "recipient": "Joachim Eisenberg",
+        "roomHashes": [
+          "b2d3beef1dc1760d"
+        ],
+        "short": "zapracowany gruby mezczyzna",
+        "title": "Joachim Eisenberg, Posrednik w Handlu Zbrojami, czlowiek"
+      },
+      "johan kornwalz": {
+        "count": 6,
+        "last": 1792858678,
+        "name": "Johan",
+        "npcId": "930e9a31",
+        "postal": false,
+        "recipient": "Johan Kornwalz",
+        "roomHashes": [
+          "89b72615e3c6cd3b"
+        ],
+        "short": "sympatyczny niziolek",
+        "title": "Johan Kornwalz, Wlasciciel najlepszego sklepu w Krainie Zgromadzenia, niziolek"
+      },
+      "johannes silber": {
+        "count": 14,
+        "last": 1793085480,
+        "name": "Johannes",
+        "npcId": "1a6eaf0a",
+        "postal": false,
+        "recipient": "Johannes Silber",
+        "roomHashes": [
+          "c7f4f4c72bf6a08a"
+        ],
+        "short": "wysoki opalony mezczyzna",
+        "title": "Johannes Silber, Wlasciciel Gospody 'Pod Czarnym Orlem', czlowiek"
+      },
+      "kharrn, kowal": {
+        "count": 18,
+        "last": 1792918730,
+        "postal": false,
+        "recipient": "Kharrn, Kowal",
+        "roomHashes": [
+          "a2a9d2fac31b84e7"
+        ]
+      },
+      "lanucci porte": {
+        "count": 20,
+        "last": 1792920869,
+        "name": "Lanucci",
+        "npcId": "fd84e4dd",
+        "postal": false,
+        "recipient": "Lanucci Porte",
+        "roomHashes": [
+          "db53ea6a3363701a"
+        ],
+        "short": "ekscentryczny grubiutki mezczyzna",
+        "title": "Lanucci Porte, handlarz, znawca i kolekcjoner, mezczyzna"
+      },
+      "ludwig golebiarz": {
+        "count": 26,
+        "last": 1793082667,
+        "name": "Ludwig",
+        "npcId": "92bf1c8d",
+        "postal": false,
+        "recipient": "Ludwig Golebiarz",
+        "roomHashes": [
+          "211fcb467fed33e9"
+        ],
+        "short": "dlugonosy usmiechniety niziolek",
+        "title": "Ludwig, Golebiarz z Nuln, niziolek"
+      },
+      "mario": {
+        "count": 12,
+        "last": 1792886054,
+        "name": "Mario",
+        "npcId": "7a61e198",
+        "postal": false,
+        "recipient": "Mario",
+        "roomHashes": [
+          "5e2ec73318833437"
+        ],
+        "short": "ogromny gruby mezczyzna",
+        "title": "Mario, Tawernmistrz, czlowiek"
+      },
+      "meloar sanchez": {
+        "count": 18,
+        "last": 1792926360,
+        "name": "Meloar",
+        "npcId": "ffb2df2d",
+        "postal": false,
+        "recipient": "Meloar Sanchez",
+        "roomHashes": [
+          "ace51e488054f7cf"
+        ],
+        "short": "zamyslony czarnowlosy mezczyzna",
+        "title": "Meloar Sanchez, powroznik"
+      },
+      "michael tommasino": {
+        "count": 22,
+        "last": 1792914868,
+        "name": "Michael",
+        "npcId": "54ff1ba2",
+        "postal": false,
+        "recipient": "Michael Tommasino",
+        "roomHashes": [
+          "d6317d1918d8624b"
+        ],
+        "short": "gruby dostojny mezczyzna",
+        "title": "Don Michael Tommasino, Burmistrz Campogrotty, czlowiek"
+      },
+      "mortimer blatterburn": {
+        "count": 5,
+        "last": 1792866257,
+        "name": "Mortimer",
+        "npcId": "5700dbc4",
+        "postal": false,
+        "recipient": "Mortimer Blatterburn",
+        "roomHashes": [
+          "6b1982481fab02a4"
+        ],
+        "short": "bogaty lysawy niziolek",
+        "title": "Mortimer Blatterburn, Wlasciciel Gospody 'Pod Wrzesniowym Piwem', niziolek"
+      },
+      "nikolaus schmidt": {
+        "count": 10,
+        "last": 1793085274,
+        "name": "Nikolaus",
+        "npcId": "6a58e344",
+        "postal": false,
+        "recipient": "Nikolaus Schmidt",
+        "roomHashes": [
+          "4d572cb0fdc78834"
+        ],
+        "short": "brazowooki barczysty mezczyzna",
+        "title": "Nikolaus Schmidt, Mistrz Ciesielski, czlowiek"
+      },
+      "olaff meier mlodszy": {
+        "count": 13,
+        "last": 1792891636,
+        "postal": false,
+        "recipient": "Olaff Meier Mlodszy",
+        "roomHashes": [
+          "296f65252cfbd9dc"
+        ]
+      },
+      "poczta miasteczka kreutzhofen": {
+        "count": 12,
+        "last": 1792915351,
+        "postal": true,
+        "recipient": "Poczta miasteczka Kreutzhofen",
+        "roomHashes": [
+          "315106e45b840273"
+        ]
+      },
+      "poczta miasteczka varieno": {
+        "count": 11,
+        "last": 1792926114,
+        "postal": true,
+        "recipient": "Poczta miasteczka Varieno",
+        "roomHashes": [
+          "78c41b4fab38b2b5"
+        ]
+      },
+      "poczta w bissingen": {
+        "count": 11,
+        "last": 1792927203,
+        "postal": true,
+        "recipient": "Poczta w Bissingen",
+        "roomHashes": [
+          "200aff4d957642cd"
+        ]
+      },
+      "poczta w campogrotta": {
+        "count": 4,
+        "last": 1792914587,
+        "postal": true,
+        "recipient": "Poczta w Campogrotta",
+        "roomHashes": [
+          "269ff0c7899bbd55"
+        ]
+      },
+      "poczta w ebino": {
+        "count": 11,
+        "last": 1792912700,
+        "postal": true,
+        "recipient": "Poczta w Ebino",
+        "roomHashes": [
+          "d69d73a15fc1b87d"
+        ]
+      },
+      "poczta w jaskare": {
+        "count": 10,
+        "last": 1792920400,
+        "postal": true,
+        "recipient": "Poczta w Jaskare",
+        "roomHashes": [
+          "2af1b52e73cf5416"
+        ]
+      },
+      "poczta w jouinard": {
+        "count": 9,
+        "last": 1792916344,
+        "postal": true,
+        "recipient": "Poczta w Jouinard",
+        "roomHashes": [
+          "e8337482d2ae8342"
+        ]
+      },
+      "poczta w karak varn": {
+        "count": 4,
+        "last": 1792922609,
+        "postal": true,
+        "recipient": "Poczta w Karak Varn",
+        "roomHashes": [
+          "c55c2924e506dd7f"
+        ]
+      },
+      "poczta w krainie zgromadzenia": {
+        "count": 5,
+        "last": 1792913884,
+        "postal": true,
+        "recipient": "Poczta w Krainie Zgromadzenia",
+        "roomHashes": [
+          "907327356ecc2f87"
+        ]
+      },
+      "poczta w kreutzhoffen": {
+        "count": 5,
+        "last": 1793083570,
+        "postal": true,
+        "recipient": "Poczta w Kreutzhoffen",
+        "roomHashes": [
+          "315106e45b840273"
+        ]
+      },
+      "poczta w nuln": {
+        "count": 10,
+        "last": 1792920512,
+        "postal": true,
+        "recipient": "Poczta w Nuln",
+        "roomHashes": [
+          "6f2c03461c2f1438"
+        ]
+      },
+      "poczta w quenelles": {
+        "count": 4,
+        "last": 1792925021,
+        "postal": true,
+        "recipient": "Poczta w Quenelles",
+        "roomHashes": [
+          "e202c7893bf8fb55"
+        ]
+      },
+      "poczta w toscanii": {
+        "count": 10,
+        "last": 1792926281,
+        "postal": true,
+        "recipient": "Poczta w Toscanii",
+        "roomHashes": [
+          "842de8139814c827"
+        ]
+      },
+      "poczta w ubersreik": {
+        "count": 3,
+        "last": 1792914162,
+        "postal": true,
+        "recipient": "Poczta w Ubersreik",
+        "roomHashes": [
+          "54fa7e4634a30c23"
+        ]
+      },
+      "poczta w urbimo": {
+        "count": 3,
+        "last": 1792926670,
+        "postal": true,
+        "recipient": "Poczta w Urbimo",
+        "roomHashes": [
+          "0a647e20ca6f97f7"
+        ]
+      },
+      "poczta w varieno": {
+        "count": 9,
+        "last": 1792926753,
+        "postal": true,
+        "recipient": "Poczta w Varieno",
+        "roomHashes": [
+          "78c41b4fab38b2b5"
+        ]
+      },
+      "reinhard fleischer": {
+        "count": 7,
+        "last": 1792924516,
+        "name": "Reinhard",
+        "npcId": "0505036b",
+        "postal": false,
+        "recipient": "Reinhard Fleischer",
+        "roomHashes": [
+          "ee1750b8963e37f1"
+        ],
+        "short": "potezny ciemnowlosy mezczyzna",
+        "title": "Reinhard Fleischer, rzeznik, czlowiek"
+      },
+      "rolph ederson": {
+        "count": 14,
+        "last": 1792882108,
+        "name": "Rolph",
+        "npcId": "0dfb3842",
+        "postal": false,
+        "recipient": "Rolph Ederson",
+        "roomHashes": [
+          "9c63a5b8e685fc50"
+        ],
+        "short": "przygarbiony otyly mezczyzna",
+        "title": "Rolph Ederson, Przelozony na Ksiegach i Glowny Kaplan Swiatyni Vereny, czlowiek"
+      },
+      "rolph ederson z nuln": {
+        "count": 1,
+        "last": 1792908321,
+        "postal": false,
+        "recipient": "rolph ederson z nuln",
+        "roomHashes": [
+          "9c63a5b8e685fc50"
+        ]
+      },
+      "rudolf karczmarz": {
+        "count": 8,
+        "last": 1792918808,
+        "name": "Rudolf",
+        "npcId": "e8e55023",
+        "postal": false,
+        "recipient": "Rudolf Karczmarz",
+        "roomHashes": [
+          "0d8d8f5b8512a9b0"
+        ],
+        "short": "barczysty mezczyzna",
+        "title": "Rudolf Karczmarz, czlowiek"
+      },
+      "tarinolli scherzoni": {
+        "count": 10,
+        "last": 1792921360,
+        "name": "Tarinolli",
+        "npcId": "a4348f54",
+        "postal": false,
+        "recipient": "Tarinolli Scherzoni",
+        "roomHashes": [
+          "f753eddde69aa823"
+        ],
+        "short": "rumiany sympatyczny niziolek",
+        "title": "Tarinolli Scherzoni, Piekarz Pierwsza Klasa, niziolek"
+      },
+      "torquato di assemani": {
+        "count": 23,
+        "last": 1792915003,
+        "name": "Torquato",
+        "npcId": "bd2fce7e",
+        "postal": false,
+        "recipient": "Torquato di Assemani",
+        "roomHashes": [
+          "d297e64b2288c337",
+          "ef767d747f0a4d13",
+          "ff91072fd68491f6",
+          "b86129bbefdb9e71",
+          "06c7bfc0793a5a4b",
+          "269ff0c7899bbd55",
+          "32a0096f3c307d7f"
+        ],
+        "short": "wyniosly bialowlosy mezczyzna",
+        "title": "Torquato di Assemani"
+      },
+      "urzad pocztowy karak-varn": {
+        "count": 5,
+        "last": 1792918711,
+        "postal": true,
+        "recipient": "Urzad pocztowy Karak-Varn",
+        "roomHashes": [
+          "c55c2924e506dd7f"
+        ]
+      },
+      "urzad pocztowy miasta urbimo": {
+        "count": 1,
+        "last": 1792863240,
+        "postal": true,
+        "recipient": "Urzad pocztowy miasta Urbimo",
+        "roomHashes": [
+          "0a647e20ca6f97f7"
+        ]
+      },
+      "urzad pocztowy nuln": {
+        "count": 1,
+        "last": 1792903669,
+        "postal": true,
+        "recipient": "Urzad pocztowy Nuln",
+        "roomHashes": [
+          "6f2c03461c2f1438"
+        ]
+      },
+      "urzad pocztowy w campogrotta": {
+        "count": 7,
+        "last": 1792921209,
+        "postal": true,
+        "recipient": "Urzad pocztowy w Campogrotta",
+        "roomHashes": [
+          "269ff0c7899bbd55"
+        ]
+      },
+      "urzad pocztowy w jaskare": {
+        "count": 1,
+        "last": 1792851803,
+        "postal": true,
+        "recipient": "Urzad pocztowy w Jaskare",
+        "roomHashes": [
+          "2af1b52e73cf5416"
+        ]
+      },
+      "urzad pocztowy w karak varn": {
+        "count": 1,
+        "last": 1792917228,
+        "postal": true,
+        "recipient": "Urzad pocztowy w Karak Varn",
+        "roomHashes": [
+          "c55c2924e506dd7f"
+        ]
+      },
+      "urzad pocztowy w nuln": {
+        "count": 21,
+        "last": 1792925606,
+        "postal": true,
+        "recipient": "Urzad pocztowy w Nuln",
+        "roomHashes": [
+          "6f2c03461c2f1438"
+        ]
+      },
+      "urzad pocztowy w toscanii": {
+        "count": 1,
+        "last": 1792901489,
+        "postal": true,
+        "recipient": "Urzad pocztowy w Toscanii",
+        "roomHashes": [
+          "842de8139814c827"
+        ]
+      },
+      "urzad pocztowy w urbimo": {
+        "count": 4,
+        "last": 1792926504,
+        "postal": true,
+        "recipient": "Urzad pocztowy w Urbimo",
+        "roomHashes": [
+          "0a647e20ca6f97f7"
+        ]
+      },
+      "urzad pocztowy w varieno": {
+        "count": 4,
+        "last": 1792926068,
+        "postal": true,
+        "recipient": "Urzad pocztowy w Varieno",
+        "roomHashes": [
+          "78c41b4fab38b2b5"
+        ]
+      },
+      "vega tuzzi": {
+        "count": 6,
+        "last": 1792920902,
+        "name": "Vega",
+        "npcId": "9dca01cd",
+        "postal": false,
+        "recipient": "Vega Tuzzi",
+        "roomHashes": [
+          "46cf79085a5e1b73"
+        ],
+        "short": "pstrokatoodziany ciemnowlosy mezczyzna",
+        "title": "Vega Tuzzi, handlarz, w przeciwienstwie do niektorych, godny zaufania, mezczyzna"
+      },
+      "virien, kaplan": {
+        "count": 11,
+        "last": 1792867789,
+        "name": "Virien",
+        "npcId": "0b077c89",
+        "postal": false,
+        "recipient": "Virien, kaplan",
+        "roomHashes": [
+          "82214666665c6aa4"
+        ],
+        "short": "szpakowaty stary mezczyzna",
+        "title": "Virien, Kaplan Sigmara, mezczyzna"
+      },
+      "vito cattanei": {
+        "count": 11,
+        "last": 1792920903,
+        "name": "Vito",
+        "npcId": "871d37ac",
+        "postal": false,
+        "recipient": "Vito Cattanei",
+        "roomHashes": [
+          "2e8192160373b5e0"
+        ],
+        "short": "niski zylasty mezczyzna",
+        "title": "Don Vito Cattanei, wlasciciel restauracji, Tileanczyk"
+      },
+      "zetegen di toscania": {
+        "count": 6,
+        "last": 1792911694,
+        "postal": false,
+        "recipient": "Zetegen di Toscania",
+        "roomHashes": [
+          "7683ce61817149f8"
+        ]
+      }
+    },
+    "schema": 1
+  },
+  "version": 1
+}

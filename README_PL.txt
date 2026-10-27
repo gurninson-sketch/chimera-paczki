@@ -1,4 +1,4 @@
-PACZKI 1.5.18 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
+PACZKI 1.5.19 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
 Zgodność: 5.0.0-beta.13 i 5.0.1; 27 października 2026
 
 WYBÓR PACZEK OD 1.5.14
@@ -932,3 +932,15 @@ Nie trzeba resetować bazy ani zapisanego kursu.
 1.5.16: /paczki szukanie 5 ustawia minuty szukania po mieście.
 Po limicie powrót, potwierdzony zwrot i pomijanie adresata przez 30 min.
 Przerwa zachowuje stan kursu. Szczegóły w README.md.
+
+WSPÓLNA BAZA ADRESÓW OD 1.5.19
+
+Publiczny katalog GitHub: data/addresses.json. Trzy źródła: Groro, Yarrim,
+Morrid; początkowo 63 adresatów i 69 lokalizacji.
+/paczki baza aktualizuj — pobierz i scal z lokalnymi odkryciami.
+/paczki baza status — sprawdź wynik.
+/paczki baza synchronizacja on|off — automatyczne sprawdzanie po 45 s
+od załadowania i co 6 godzin. Import czeka na zatrzymanie botów oraz
+rozliczenie operacji; wcześniej zapisuje kopię lokalnej bazy.
+Nowe eksporty dodaj do data/address_sources/ w repozytorium GitHub.
+GitHub Actions waliduje i scala źródła. Bot sam nie wysyła eksportów.

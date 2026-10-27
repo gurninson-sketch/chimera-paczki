@@ -18,7 +18,7 @@ return {
     name = "kurier_paczki",
     title = "Paczki",
     section = "boty",
-    version = "1.5.18",
+    version = "1.5.19",
     related = { "bots", "walker", "automation", "npcs" },
     description = "Kurier: wybor paczek, baza /npc, doreczenia i powrot do urzedu nadania",
     deps = { "bots", "gmcp", "walker", "mapper", "npcs", "locations", "bags", "world" },
@@ -914,7 +914,7 @@ return {
                 crossing.fareDeferred and "schowanie odlozone do rozliczenia paczki" or crossing.fareFinished and "obsluga reszty zakonczona" or
                 crossing.farePending and "oczekiwanie na potwierdzenie" or "etap przed rozliczeniem reszty"
             local rows={
-                {"Wersja Paczek","1.5.18; silnik "..tostring(C.version).."; NPC "..tostring(navigator.version)},
+                {"Wersja Paczek","1.5.19; silnik "..tostring(C.version).."; NPC "..tostring(navigator.version)},
                 {"Stan",C.mode.." / "..C.phase},
                 {"Planowanie",tostring(planning.active).." aktywne; "..tostring(planning.slices).." porcji; "..tostring(planning.yields).." oddan sterowania"},
                 {"Porcja CPU",string.format("maks. %.2f ms od zaladowania",planning.maxSliceMs)},
@@ -930,7 +930,7 @@ return {
                 {"Dane miasta",state.metadataSource or "nie ustalono"},
                 {"Znane miejsca",tostring(state.knownRooms or (route and #route.rooms) or 0)},
             }
-            ctx:report("Paczki / Diagnostyka 1.5.18",rows)
+            ctx:report("Paczki / Diagnostyka 1.5.19",rows)
         end
         -- Update checks may run during a course. The code swap itself needs
         -- fresh, positively clear server state and zero outstanding ownership.
@@ -947,7 +947,7 @@ return {
         ctx:on("chimera.walk.stopped",function() updateWalk=false end)
         local reloadSources
         local updater=require("chimera_paczki.updater").create(ctx,{
-            version="1.5.18",now=timingClock,
+            version="1.5.19",now=timingClock,
             safe=function()
                 if disposed or owned or bots.status() or updateWalk or sessionWait or emergencyLease or
                     next(pendingTravel) or C.pending or C.walking or C.mode=="running" or C.mode=="resting" or
@@ -1014,12 +1014,20 @@ return {
                 return true
             end,
         })
+        local sharedBase=memory.createSharedSync(ctx,{
+            safe=function()
+                return not disposed and not active() and not owned and not sessionWait and not bots.status() and
+                    not emergencyLease and not next(pendingTravel) and not C.pending and not C.walking and
+                    not C.awaitingPickup and not C.awaitingDelivery and not C.awaitingReturn and not C.awaitingReward and
+                    not inventory.status().active and planner.status().active==0
+            end,
+        })
         local function panel()
             local bagStatus=inventory.status()
             local detected=bagStatus.detectedPack
             if type(detected)=="table" then detected=detected.name end
             local search=searchStatus(C.job and C.job.route)
-            ctx:table("Boty / Paczki 1.5.18", { { max = 18 }, { color = "gray" } }, {
+            ctx:table("Boty / Paczki 1.5.19", { { max = 18 }, { color = "gray" } }, {
                 { "Sterowanie", { cell("[start]", "/bot paczki", "green"), cell("  [1 paczka]", "/paczki start 1", "green"),
                     cell("  [stop]", "/paczki stop", "orange"), cell("  [wznow]", "/paczki wznow") } },
                 { "Stan", C.mode .. " / " .. C.phase },
@@ -1054,7 +1062,7 @@ return {
                 { "Adresaci", "10 tras Nuln + baza /npc i mapa profilu" },
                 { "Sprawdz /npc", "/paczki npc Imie Nazwisko" },
                 { "Baza kuriera", {cell(tostring(memory.count()).." adresatow — [pokaz]","/paczki baza")} },
-                { "Przenoszenie bazy", {cell("[eksport]","/paczki baza eksport"),cell("  [import pliku]","/paczki baza import")} },
+                { "Przenoszenie bazy", {cell("[eksport]","/paczki baza eksport"),cell("  [import pliku]","/paczki baza import"),cell("  [pobierz wspolna]","/paczki baza aktualizuj")} },
                 { "Automatyczna nauka", {cell(C.config.autoLearn and "[wlaczona]" or "[wlacz]","/paczki nauka auto"),cell("  [wylacz]","/paczki nauka stop")} },
                 { "Najblizsze poczty", {cell("[lista]","/paczki poczty")} },
                 { "Wybor reczny", {cell("[pracuj tutaj]","/paczki poczta tutaj"),{text="  /paczki poczta <miasto>",color="gray"}} },
@@ -1104,7 +1112,13 @@ return {
                     ctx.log.info("To ocena ostatniej pelnej tablicy; tempo, oferty i pomiary mogly sie od tego czasu zmienic.")
                 elseif action=="baza" then
                     local option=C.norm(input:match("^%S+%s+(%S+)") or "")
-                    if option=="eksport" or option=="import" then
+                    if option=="aktualizuj" then sharedBase.check(false)
+                    elseif option=="status" then sharedBase.show()
+                    elseif option=="synchronizacja" then
+                        local toggle=C.norm(input:match("^%S+%s+%S+%s+(%S+)") or "")
+                        if toggle=="on" or toggle=="off" then sharedBase.setEnabled(toggle=="on")
+                        else ctx.log.info("/paczki baza synchronizacja on|off");sharedBase.show() end
+                    elseif option=="eksport" or option=="import" then
                         transferBase(option,input:match("^%S+%s+%S+%s+(.+)$"))
                     elseif option=="usun" then
                         local name=input:match("^%S+%s+%S+%s+(.+)$")
@@ -1112,7 +1126,7 @@ return {
                         local ok,why=memory.forget(name)
                         if ok then ctx.log.info("Usunieto adresata z bazy kuriera: "..name..".")
                         else ctx.log.warn(why or "Nie ma takiego adresata w bazie kuriera.") end
-                    elseif option~="" then ctx.log.info("/paczki baza | baza eksport [plik] | baza import [plik] | baza usun <pelny adresat>")
+                    elseif option~="" then ctx.log.info("/paczki baza | baza aktualizuj | baza status | baza synchronizacja on|off | baza eksport [plik] | baza import [plik] | baza usun <pelny adresat>")
                     else
                         local rows={}
                         for _,record in ipairs(memory.all()) do
@@ -1146,6 +1160,6 @@ return {
             bots.unregister("paczki")
         end)
         return { engine=C, panel=panel, stop=stop, navigator=navigator, offices=offices, inventory=inventory, memory=memory, checkpoint=checkpoint,eta=eta,
-            planner=planner,updater=updater,transportState=loadTransport,sessionWaiting=function() return sessionWait~=nil end, version="1.5.18" }
+            planner=planner,updater=updater,sharedBase=sharedBase,transportState=loadTransport,sessionWaiting=function() return sessionWait~=nil end, version="1.5.19" }
     end,
 }

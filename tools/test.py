@@ -101,6 +101,7 @@ def main() -> None:
         parser.error("Install texlua (texlive-luatex), or Lua 5.3+ and LuaFileSystem")
     if args.jobs < 1 or args.jobs > 16:
         parser.error("--jobs must be between 1 and 16")
+    subprocess.run(["python3", "-m", "unittest", "discover", "-s", "tests", "-p", "test_consolidate_addresses.py"], cwd=ROOT, check=True)
     check_assets()
     reports = ROOT / "test-results"
     reports.mkdir(exist_ok=True)
