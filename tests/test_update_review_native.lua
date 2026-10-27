@@ -7,8 +7,8 @@ local M=T.M
 local json=require("chimera.core.json")
 local updater=dofile("../chimera-native/chimera_wtyczki/chimera_paczki/updater.lua")
 local HOME="6f2c03461c2f1438"
-local VERSION="1.5.14"
-local NEXT="1.5.15"
+local VERSION="1.5.15"
+local NEXT="1.5.16"
 local REPO="https://github.com/gurninson-sketch/chimera-paczki"
 local function read(path)
     local file=assert(io.open(path,"rb"));local body=file:read("*a");file:close();return body
@@ -16,7 +16,14 @@ end
 local sources={}
 for _,name in ipairs(updater.files) do sources[name]=read("../chimera-native/chimera_wtyczki/chimera_paczki/"..name) end
 local network={connected=true}
+local downloadPaths={}
 local function prepare()
+    downloadPaths={}
+    _G.downloadFile=function(path,url)
+        M.http[#M.http+1]=url
+        downloadPaths[url]=path
+        return true,url
+    end
     for name,source in pairs(sources) do M.write_file("chimera_wtyczki/chimera_paczki/"..name,source) end
     for _,name in ipairs({"init.lua","core.lua"}) do
         M.write_file("chimera_wtyczki/chimera_reconnect/"..name,read("../chimera-reconnect/chimera_wtyczki/chimera_reconnect/"..name))
@@ -56,19 +63,25 @@ end
 local function release(mutate)
     local files={}
     for name,source in pairs(sources) do files[name]=source end
-    files["init.lua"]=files["init.lua"]:gsub("1%.5%.14",NEXT)
-    files["updater.lua"]=files["updater.lua"]:gsub("1%.5%.14",NEXT)
+    files["init.lua"]=files["init.lua"]:gsub("1%.5%.15",NEXT)
+    files["updater.lua"]=files["updater.lua"]:gsub("1%.5%.15",NEXT)
     if mutate then mutate(files) end
     local body=json.encode({schema=1,version=NEXT,files=files})
     return body,{schema=1,version=NEXT,bundle={url=REPO.."/releases/download/v"..NEXT.."/chimera-paczki-runtime.json",bytes=#body,sha256=sha(body)}}
+end
+local function completeDownload(url,body)
+    local path=assert(downloadPaths[url],"No owned download for "..url)
+    local file=assert(io.open(path,"wb"));assert(file:write(body));file:close()
+    raiseEvent("sysDownloadDone",path,#body,{url="https://release-assets.githubusercontent.com/redirected-resource"})
+    return path
 end
 local function download(api,mutate,automatic)
     local body,manifest=release(mutate)
     T.eq(true,api.updater.check(automatic==true))
     T.eq(updater.manifestUrl,M.http[#M.http])
-    raiseEvent("sysGetHttpDone",updater.manifestUrl,json.encode(manifest))
+    completeDownload(updater.manifestUrl,json.encode(manifest))
     T.eq(manifest.bundle.url,M.http[#M.http])
-    raiseEvent("sysGetHttpDone",manifest.bundle.url,body)
+    completeDownload(manifest.bundle.url,body)
     M.advance(2)
 end
 local function expectOriginal(app)
@@ -91,6 +104,10 @@ T.test("native successful update reloads reconnect and preserves learned records
     local fresh=app.loader.records.kurier_paczki
     T.eq("running",fresh.status,M.text());T.eq(NEXT,fresh.api.version,M.text())
     T.eq(NEXT,fresh.api.updater.version)
+    for _,path in pairs(downloadPaths) do
+        local file=io.open(path,"rb");if file then file:close() end
+        T.eq(nil,file,"temporary download files must be removed")
+    end
     T.eq(1,fresh.api.memory.count());T.ok(fresh.api.memory.find("Review Recipient"))
     T.eq(4.25,fresh.api.engine.config.maxKg)
     T.eq('{"independent-profile-file":true}',read(M.home.."/chimera_paczki_baza.json"))
@@ -147,7 +164,7 @@ T.test("native queued stage mutation is detected before the live folder is repla
     T.eq(NEXT,api.updater.status().pending)
     local root=M.home.."/chimera_paczki_updates"
     local stage
-    for name in lfs.dir(root) do if name:match("^v1%.5%.15%-%d") then stage=root.."/"..name end end
+    for name in lfs.dir(root) do if name:match("^v1%.5%.16%-%d") then stage=root.."/"..name end end
     T.ok(stage,"queued release stage exists outside plugin discovery")
     local file=assert(io.open(stage.."/core.lua","ab"));file:write("\n-- edited after download\n");file:close()
     M.packet("Chimera.Combat.State",{room=HOME,primary="",relations={}})
@@ -163,11 +180,11 @@ T.test("native automatic OFF ignores a bundle response already in flight",functi
     local app,api=start()
     local body,manifest=release()
     T.eq(true,api.updater.check(true))
-    raiseEvent("sysGetHttpDone",updater.manifestUrl,json.encode(manifest))
+    completeDownload(updater.manifestUrl,json.encode(manifest))
     T.eq(manifest.bundle.url,M.http[#M.http])
     T.eq(true,api.updater.setEnabled(false))
-    raiseEvent("sysGetHttpDone",manifest.bundle.url,body)
-    M.advance(35)
+    completeDownload(manifest.bundle.url,body)
+    M.advance(65)
     expectOriginal(app)
     local state=api.updater.status()
     T.eq(false,state.enabled);T.eq(false,state.busy);T.eq(nil,state.pending)

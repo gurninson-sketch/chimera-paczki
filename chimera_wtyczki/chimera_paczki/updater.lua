@@ -90,7 +90,7 @@ function S.finish(state)
   return table.concat(result)
 end
 
-local U={version="1.5.14",sha256=S}
+local U={version="1.5.15",sha256=S}
 local REPO="https://github.com/gurninson-sketch/chimera-paczki"
 local MANIFEST=REPO.."/releases/latest/download/update.json"
 local FILES={"init.lua","core.lua","routes.lua","new_routes.lua","npc.lua","travel.lua","offices.lua","scope.lua",
@@ -132,7 +132,10 @@ function U.validateBundle(data,expected)
 end
 local function defaultFs()
     local fs=require("chimera.core.fs")
-    return {read=fs.read,list=fs.list,mkdir=fs.mkdir,isDir=fs.is_dir,exists=fs.exists,rename=os.rename,
+    return {read=function(path,limit)
+            local file=io.open(path,"rb");if not file then return nil end
+            local body=file:read(limit and limit+1 or "*a");file:close();return body
+        end,list=fs.list,mkdir=fs.mkdir,isDir=fs.is_dir,exists=fs.exists,rename=os.rename,remove=os.remove,
         write=function(path,content)
             local file,why=io.open(path,"wb");if not file then return false,why end
             local ok,err=file:write(content);local closed,closeerr=file:close()
@@ -160,6 +163,8 @@ function U.create(ctx,opts)
     local enabled=type(saved)~="table" or saved.enabled~=false
     local api={version=U.version}
     local disposed,busy,serial,waiting=false,false,0,nil
+    local requestNumber,retired=0,{}
+    local instance=tostring({}):gsub("[^%w]","").."-"..tostring(math.floor(now()*1000000))
     local pending,reason,lastVersion,lastCheck,stage=false,nil,nil,nil,nil
     local timer,checkTimer,startTimer,httpTimer,workTimer
     local home=normalizedHome(opts.home or ctx.app and ctx.app.paths and ctx.app.paths.home)
@@ -173,7 +178,11 @@ function U.create(ctx,opts)
         elseif name=="retry" then handle=timer;timer=nil end
         if handle then ctx:cancel(handle) end
     end
+    local function removeDownload(req)
+        if req and req.path and fs.remove then pcall(fs.remove,req.path) end
+    end
     local function finish(message)
+        if waiting then retired[waiting.path]=true;removeDownload(waiting) end
         busy=false;waiting=nil;clear("http");clear("work")
         if message then reason=message;log(message) end
     end
@@ -197,23 +206,53 @@ function U.create(ctx,opts)
         return ok and data or nil
     end
     local function request(url,limit,done)
-        waiting={url=url,limit=limit,done=done,serial=serial}
-        httpTimer=ctx:timer(30,function()
+        if not goodPath() or not fs.mkdir(work) or fs.isLink(work) then
+            finish("nie mozna przygotowac katalogu pobierania; zachowano obecny kod");return
+        end
+        requestNumber=requestNumber+1
+        local path=work.."/download-"..instance.."-"..requestNumber..".tmp"
+        if fs.exists(path) or fs.isLink(path) then
+            finish("plik pobierania juz istnieje; zachowano obecny kod");return
+        end
+        local label=url==MANIFEST and "opis wydania" or "kod wydania"
+        waiting={url=url,path=path,limit=limit,done=done,serial=serial,label=label}
+        log("pobieram "..label.."; limit 60 s")
+        httpTimer=ctx:timer(60,function()
             httpTimer=nil
-            if waiting then finish("serwer nie odpowiedzial przez 30 s; zachowano obecny kod") end
+            if waiting then finish("timeout pobierania: "..waiting.label.." (60 s); zachowano obecny kod") end
         end)
-        local ok,result=pcall(opts.getHTTP or getHTTP,url,{})
-        if not ok or result==false then finish("nie mozna rozpoczac pobierania") end
+        -- getHTTP events report the final redirected URL; some client
+        -- versions also limit bodies returned through HTTP events. File completion is correlated with our unique
+        -- local path, including GitHub's redirects to its asset host.
+        local ok,result=pcall(opts.downloadFile or downloadFile,path,url)
+        if not ok or result==false then finish("nie mozna rozpoczac pobierania "..label) end
     end
-    ctx:on("sysGetHttpDone",function(_,url,body)
+    local function pathKey(path)
+        return type(path)=="string" and path:gsub("\\","/") or nil
+    end
+    ctx:on("sysDownloadDone",function(_,path,size)
+        path=pathKey(path)
+        if path and retired[path] then retired[path]=nil;removeDownload({path=path});return end
         local req=waiting
-        if not req or req.url~=url or req.serial~=serial then return end
+        if not req or req.path~=path or req.serial~=serial then return end
         waiting=nil;clear("http")
-        if type(body)~="string" or #body>req.limit then finish("odpowiedz serwera przekracza limit");return end
+        if fs.isLink(path) or fs.isDir(path) or not fs.exists(path) then
+            removeDownload(req);finish("niepoprawny pobrany plik; zachowano obecny kod");return
+        end
+        if type(size)=="number" and size>req.limit then
+            removeDownload(req);finish("odpowiedz serwera przekracza limit");return
+        end
+        local ok,body=pcall(fs.read,path,req.limit)
+        removeDownload(req)
+        if not ok or type(body)~="string" or #body>req.limit then finish("nie mozna odczytac pliku lub odpowiedz przekracza limit");return end
         req.done(body)
     end)
-    ctx:on("sysGetHttpError",function(_,message,url)
-        if waiting and waiting.url==url then finish("blad pobierania; zachowano obecny kod") end
+    ctx:on("sysDownloadError",function(_,message,path)
+        path=pathKey(path)
+        if path and retired[path] then retired[path]=nil;removeDownload({path=path});return end
+        if waiting and waiting.path==path then
+            finish("blad pobierania "..waiting.label..": "..tostring(message).."; zachowano obecny kod")
+        end
     end)
     local apply
     local function retry()
@@ -347,7 +386,8 @@ function U.create(ctx,opts)
     end
     function api.status()
         return {enabled=enabled,busy=busy,pending=pending and pending.version or nil,
-            current=current,available=lastVersion,lastCheck=lastCheck,reason=reason,manifest=MANIFEST}
+            current=current,available=lastVersion,lastCheck=lastCheck,reason=reason,manifest=MANIFEST,
+            download=waiting and waiting.label or nil}
     end
     function api.show()
         local s=api.status()
@@ -360,7 +400,10 @@ function U.create(ctx,opts)
     startTimer=ctx:timer(30,function() startTimer=nil;api.check(true) end)
     checkTimer=ctx:timer(6*60*60,function() api.check(true) end,true)
     ctx:cleanup(function()
-        disposed=true;serial=serial+1;waiting=nil;pending=nil
+        disposed=true;serial=serial+1
+        removeDownload(waiting)
+        for path in pairs(retired) do removeDownload({path=path}) end
+        waiting=nil;pending=nil
         clear("http");clear("work");clear("retry")
         if startTimer then ctx:cancel(startTimer);startTimer=nil end
         if checkTimer then ctx:cancel(checkTimer);checkTimer=nil end

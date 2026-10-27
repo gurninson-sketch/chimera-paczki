@@ -1,5 +1,13 @@
 # Zmiany
 
+## 1.5.15
+
+- Pobieranie manifestu i kodu przez downloadFile; obsługa przekierowań GitHuba przez dopasowanie unikalnej ścieżki pliku.
+- Osobne żądania, sprzątanie plików tymczasowych i odrzucanie spóźnionych odpowiedzi.
+- Limit 60 sekund ze wskazaniem pobieranego etapu i rzeczywistej przyczyny błędu.
+- Zachowane limity rozmiaru, SHA-256, walidacja Lua oraz wycofanie nieudanej instalacji.
+- Przy aktualizacji z 1.5.13/1.5.14 użyj jednorazowo ZIP-a: stary aktualizator może ignorować przekierowane odpowiedzi.
+
 ## 1.5.14
 
 - Stała kolejność: miejscowe przed międzymiastowymi poczta → poczta; w grupie numer na tablicy.

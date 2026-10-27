@@ -2,6 +2,8 @@ name: Release
 on:
   push:
     tags: ["v*.*.*"]
+    branches: ["main"]
+    paths: ["VERSION"]
   workflow_dispatch:
     inputs:
       tag:
@@ -21,17 +23,17 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y texlive-luatex
       - name: Verify version tag
         env:
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
         run: |
           python3 - <<'PY'
           import os, pathlib, subprocess
-          tag = os.environ["RELEASE_TAG"]
+          tag = os.environ["RELEASE_TAG"] or "v" + pathlib.Path("VERSION").read_text().strip()
           assert tag == "v" + pathlib.Path("VERSION").read_text().strip(), "Tag differs from VERSION"
           head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
           existing = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"refs/tags/{tag}^{{commit}}"], text=True, stdout=subprocess.PIPE)
           assert existing.returncode != 0 or existing.stdout.strip() == head, "Existing tag points to a different commit"
           with open(os.environ["GITHUB_ENV"], "a") as env:
-              env.write(f"RELEASE_COMMIT={head}\n")
+              env.write(f"RELEASE_COMMIT={head}\nRELEASE_TAG={tag}\n")
           PY
       - name: Verify offline simulations on both Chimera versions
         run: python3 tools/test.py
@@ -40,7 +42,6 @@ jobs:
       - name: Prepare draft release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > /tmp/paczki-release-draft; then
             if test "$(cat /tmp/paczki-release-draft)" = true; then
@@ -54,6 +55,11 @@ jobs:
           else
             gh release create "$RELEASE_TAG" dist/Chimera_Paczki.zip dist/chimera-paczki-runtime.json dist/update.json dist/SHA256SUMS --target "$RELEASE_COMMIT" --draft --title "Chimera Paczki $RELEASE_TAG" --notes-file CHANGELOG.md
           fi
+      - name: Publish verified version from main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$RELEASE_TAG" --draft=false --latest
       - name: Keep simulation reports
         if: always()
         uses: actions/upload-artifact@v4

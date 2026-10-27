@@ -10,7 +10,7 @@ local function digest(s) local h=U.sha256.new(s);while not U.sha256.step(h,16) d
 local LIVE="/profile/chimera_wtyczki/chimera_paczki"
 local function fixture(options)
  options=options or {}
- local e={time=0,seq=0,timers={},events={},requests={},files={[LIVE.."/init.lua"]="old init"},
+ local e={time=0,seq=0,timers={},events={},requests={},requestPaths={},removed={},reads={},files={[LIVE.."/init.lua"]="old init"},
   dirs={["/profile"]=true,["/profile/chimera_wtyczki"]=true,[LIVE]=true},links={},moves={},reloads={},logs={},safe=true,saved={}}
  if options.enabled==false then e.saved.aktualizacje={schema=1,enabled=false} end
  local ctx={app={paths={home=options.home or "/profile",plugins="/profile/chimera_wtyczki"}},log={}}
@@ -26,7 +26,12 @@ local function fixture(options)
  function fs.exists(p) return e.files[p]~=nil or e.dirs[p]==true end
  function fs.isLink(p) return e.links[p]==true end
  function fs.mkdir(p) if options.mkdirFail then return false end;e.dirs[p]=true;return true end
- function fs.read(p) return e.files[p] end
+ function fs.read(p,limit)
+  e.reads[#e.reads+1]={path=p,limit=limit}
+  local body=e.files[p]
+  return body and (limit and body:sub(1,limit+1) or body) or nil
+ end
+ function fs.remove(p) e.removed[#e.removed+1]=p;e.files[p]=nil;return true end
  function fs.write(p,s) if options.writeFail then return false end;e.files[p]=s;return true end
  function fs.list(p) local out={};for name in pairs(e.files) do local head=name:match("^(.*)/[^/]+$");if head==p then out[#out+1]=name:match("([^/]+)$") end end;return out end
  function fs.rename(a,b)
@@ -40,7 +45,10 @@ local function fixture(options)
   return true
  end
  e.api=U.create(ctx,{json=json,fs=fs,version="1.5.12",now=function() return e.time end,
-  getHTTP=function(url) e.requests[#e.requests+1]=url;return options.httpResult end,
+  downloadFile=function(path,url)
+   e.requests[#e.requests+1]=url;e.requestPaths[#e.requestPaths+1]=path
+   return options.httpResult
+  end,
   mudletVersion=function() return options.mudlet or "4.20.0" end,
   safe=function() return e.safe,"busy fixture" end,
   reload=function(v) e.reloads[#e.reloads+1]=v;return not options.reloadFail or v=="1.5.12" end})
@@ -56,7 +64,17 @@ local function fixture(options)
   end
   error("timer storm")
  end
- function e:reply(url,body) self.events.sysGetHttpDone("sysGetHttpDone",url,body) end
+ function e:path(url)
+  for i=#self.requests,1,-1 do if self.requests[i]==url then return self.requestPaths[i] end end
+ end
+ function e:reply(url,body,effectiveUrl)
+  local path=self:path(url) or "/profile/unrelated-download.tmp"
+  self.files[path]=body
+  self.events.sysDownloadDone("sysDownloadDone",path,#body,{url=effectiveUrl or url})
+ end
+ function e:noDownloads()
+  for _,path in ipairs(self.requestPaths) do eq(nil,self.files[path],"download scratch removed") end
+ end
  function e:release(mutator)
   local files={};for _,name in ipairs(U.files) do files[name]="return {} -- "..name end
   local data={schema=1,version="1.5.13",files=files}
@@ -126,8 +144,8 @@ test("truncation oversize and unrelated HTTP responses cannot install",function(
  e:reply(U.manifestUrl,json.encode(m));e:reply(m.bundle.url,p:sub(2));e:advance(1);eq(0,#e.moves);eq(false,e.api.status().busy)
  e=fixture();e.api.check(false);e:reply(U.manifestUrl,string.rep("x",32769));eq(false,e.api.status().busy)
 end)
-test("HTTP timeout ignores late completion and explicit refusal fails promptly",function()
- local e=fixture();local m=e:release();e.api.check(false);e:advance(30);e:reply(U.manifestUrl,json.encode(m));eq(1,#e.requests);eq(false,e.api.status().busy)
+test("download timeout ignores late completion and explicit refusal fails promptly",function()
+ local e=fixture({enabled=false});local m=e:release();e.api.check(false);e:advance(60);e:reply(U.manifestUrl,json.encode(m));eq(1,#e.requests);eq(false,e.api.status().busy)
  e=fixture({httpResult=false});e.api.check(false);eq(false,e.api.status().busy);eq(0,#e.moves)
 end)
 test("minimum Mudlet and unknown client version block bundle download",function()
@@ -161,5 +179,61 @@ end)
 test("disposal cancels hashing staging and all timers",function()
  local e=fixture();local m,p=e:release();e.api.check(false);e:reply(U.manifestUrl,json.encode(m));e:reply(m.bundle.url,p);e.cleanup();e:advance(40000)
  eq(0,#e.moves);eq(nil,next(e.timers));eq(2,#e.requests)
+end)
+test("redirected GitHub downloads complete by owned local path and support bodies above10KiB",function()
+ local e=fixture();local m,p=e:release(function(d) d.files["city.lua"]="--"..string.rep("x",12000).."\nreturn {}" end)
+ ok(#p>10240);e.api.check(false)
+ e:reply(U.manifestUrl,json.encode(m),"https://release-assets.githubusercontent.com/manifest-signed")
+ e:reply(m.bundle.url,p,"https://release-assets.githubusercontent.com/runtime-signed")
+ e:advance(8);eq(2,#e.moves);eq("1.5.13",e.reloads[1]);e:noDownloads()
+end)
+test("downloads use distinct paths so a stale previous request cannot complete a retry",function()
+ local e=fixture({enabled=false});local m,p=e:release();e.api.check(false)
+ local first=e:path(U.manifestUrl);e:advance(60);eq(false,e.api.status().busy)
+ e.api.check(false);local second=e:path(U.manifestUrl);ok(first~=second)
+ e.files[first]=json.encode(m);e.events.sysDownloadDone("sysDownloadDone",first,#e.files[first])
+ eq(2,#e.requests);eq(true,e.api.status().busy)
+ e:reply(U.manifestUrl,json.encode(m));e:reply(m.bundle.url,p);e:advance(1);eq(2,#e.moves)
+end)
+test("missing symlink directory and oversized downloaded files fail before installing",function()
+ for _,kind in ipairs({"missing","link","directory","oversize"}) do
+  local e=fixture({enabled=false});e.api.check(false);local path=e:path(U.manifestUrl)
+  if kind=="link" then e.links[path]=true;e.files[path]="{}"
+  elseif kind=="directory" then e.dirs[path]=true
+  elseif kind=="oversize" then e.files[path]=string.rep("x",32769) end
+  e.events.sysDownloadDone("sysDownloadDone",path,kind=="oversize" and 32769 or 2)
+  eq(false,e.api.status().busy);eq(0,#e.moves);eq("old init",e.files[LIVE.."/init.lua"])
+ end
+end)
+test("download errors are matched by path and preserve original code",function()
+ local e=fixture({enabled=false});e.api.check(false);local path=e:path(U.manifestUrl)
+ e.events.sysDownloadError("sysDownloadError","foreign download failed","/unrelated.tmp","https://other.example/")
+ eq(true,e.api.status().busy)
+ e.files[path]="partial";e.events.sysDownloadError("sysDownloadError","TLS error",path,"https://redirect.example/")
+ eq(false,e.api.status().busy);eq(0,#e.moves);e:noDownloads()
+end)
+test("timeout OFF and disposal remove partial download files",function()
+ for _,action in ipairs({"timeout","off","dispose"}) do
+  local e=fixture({enabled=action~="timeout"});e.api.check(action=="off")
+  local path=e:path(U.manifestUrl);e.files[path]="partial bytes"
+  if action=="timeout" then e:advance(60)
+  elseif action=="off" then e.api.setEnabled(false)
+  else e.cleanup() end
+  e:noDownloads();eq(0,#e.moves)
+ end
+end)
+test("Windows backslash completion and error paths match their owned downloads",function()
+ local e=fixture({enabled=false});local m,p=e:release();e.api.check(false)
+ local manifestPath=e:path(U.manifestUrl);e.files[manifestPath]=json.encode(m)
+ e.events.sysDownloadDone("sysDownloadDone",manifestPath:gsub("/","\\"),#e.files[manifestPath])
+ eq(m.bundle.url,e.requests[#e.requests]);eq(nil,e.files[manifestPath])
+ local bundlePath=e:path(m.bundle.url);e.files[bundlePath]="partial runtime"
+ e.events.sysDownloadError("sysDownloadError","synthetic Windows download error",bundlePath:gsub("/","\\"),m.bundle.url)
+ eq(false,e.api.status().busy);eq(0,#e.moves);e:noDownloads()
+ e.api.check(false);local retryPath=e:path(U.manifestUrl);e.files[retryPath]=json.encode(m)
+ e.events.sysDownloadDone("sysDownloadDone",retryPath:gsub("/","\\"),#e.files[retryPath])
+ bundlePath=e:path(m.bundle.url);e.files[bundlePath]=p
+ e.events.sysDownloadDone("sysDownloadDone",bundlePath:gsub("/","\\"),#p)
+ e:advance(1);eq(2,#e.moves);e:noDownloads()
 end)
 print(string.format("UPDATER: %d scenarios, %d assertions passed",cases,checks))
