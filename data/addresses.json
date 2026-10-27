@@ -25,8 +25,8 @@
         ]
       },
       "antonio gantucci": {
-        "count": 19,
-        "last": 1792921032,
+        "count": 20,
+        "last": 1793086148,
         "name": "Antonio",
         "npcId": "0a8cc1ee",
         "postal": false,
@@ -90,8 +90,8 @@
         "title": "Bhorin syn Bhardina, Starszy Krolewskiego Rodu Khamanow z Karak Varn, krasnolud"
       },
       "boreg khrazaksson": {
-        "count": 25,
-        "last": 1792921285,
+        "count": 34,
+        "last": 1793110317,
         "name": "Boreg",
         "npcId": "645df9cc",
         "postal": false,
@@ -110,6 +110,19 @@
         "roomHashes": [
           "38d3ec368fe10ff5"
         ]
+      },
+      "charles tribiane": {
+        "count": 4,
+        "last": 1793112259,
+        "name": "Charles",
+        "npcId": "370cee1b",
+        "postal": false,
+        "recipient": "Charles Tribiane",
+        "roomHashes": [
+          "7aeb014ddd205d38"
+        ],
+        "short": "wasaty rozbawiony mezczyzna",
+        "title": "Charles Tribiane, Wlasciciel Brasserii z Jouinard"
       },
       "elmer golebiarz": {
         "count": 6,
@@ -138,17 +151,21 @@
         "title": "Franz Eisen, Czcigodny Burmistrz Ubersreik, Przewodniczacy Rady Miejskiej"
       },
       "fryderik miecznik": {
-        "count": 15,
-        "last": 1792920196,
+        "count": 16,
+        "last": 1793087693,
+        "name": "Fryderik",
+        "npcId": "44c8c898",
         "postal": false,
         "recipient": "Fryderik Miecznik",
         "roomHashes": [
           "d6b592db212d39b3"
-        ]
+        ],
+        "short": "wysoki mocny mezczyzna",
+        "title": "Fryderik z Nuln"
       },
       "giacomo giandolimento": {
-        "count": 7,
-        "last": 1792870375,
+        "count": 14,
+        "last": 1793090863,
         "name": "Giacomo",
         "npcId": "0a981baa",
         "postal": false,
@@ -172,6 +189,19 @@
         "short": "pucolowaty piegowaty niziolek",
         "title": "Gottschalk Dahrendorf, Krawiec Krainy Zgromadzenia, niziolek"
       },
+      "helmut diesedorff": {
+        "count": 6,
+        "last": 1793110881,
+        "name": "Helmut",
+        "npcId": "e5f36f76",
+        "postal": false,
+        "recipient": "Helmut Diesedorff",
+        "roomHashes": [
+          "5478bd0b4a3b5ce3"
+        ],
+        "short": "sympatyczny pogodny mezczyzna",
+        "title": "Helmut Diesedorff, Sklepikarz, czlowiek"
+      },
       "henry schmidt": {
         "count": 7,
         "last": 1792918726,
@@ -185,9 +215,27 @@
         "short": "smukly smagly mezczyzna",
         "title": "Henry Schmidt, Sekretarz Imperialnego Biura Kartograficznego"
       },
+      "hirac lebrand z bissingen": {
+        "count": 1,
+        "last": 1793111259,
+        "postal": false,
+        "recipient": "hirac lebrand z bissingen",
+        "roomHashes": [
+          "ced2eba85058afc1"
+        ]
+      },
+      "jacques chivienne": {
+        "count": 1,
+        "last": 1793112015,
+        "postal": false,
+        "recipient": "jacques chivienne",
+        "roomHashes": [
+          "9e53ee81796fba16"
+        ]
+      },
       "joachim eisenberg": {
         "count": 5,
-        "last": 1793082450,
+        "last": 1793092400,
         "name": "Joachim",
         "npcId": "a35ef03f",
         "postal": false,
@@ -233,6 +281,19 @@
           "a2a9d2fac31b84e7"
         ]
       },
+      "kzarh": {
+        "count": 2,
+        "last": 1793112483,
+        "name": "Kzarh",
+        "npcId": "28d474af",
+        "postal": false,
+        "recipient": "Kzarh",
+        "roomHashes": [
+          "471856bba8c82472"
+        ],
+        "short": "rudobrody otyly krasnolud",
+        "title": "Kzarh z Jaskare"
+      },
       "lanucci porte": {
         "count": 20,
         "last": 1792920869,
@@ -260,8 +321,8 @@
         "title": "Ludwig, Golebiarz z Nuln, niziolek"
       },
       "mario": {
-        "count": 12,
-        "last": 1792886054,
+        "count": 14,
+        "last": 1793109957,
         "name": "Mario",
         "npcId": "7a61e198",
         "postal": false,
@@ -286,8 +347,8 @@
         "title": "Meloar Sanchez, powroznik"
       },
       "michael tommasino": {
-        "count": 22,
-        "last": 1792914868,
+        "count": 24,
+        "last": 1793087128,
         "name": "Michael",
         "npcId": "54ff1ba2",
         "postal": false,
@@ -324,6 +385,19 @@
         "short": "brazowooki barczysty mezczyzna",
         "title": "Nikolaus Schmidt, Mistrz Ciesielski, czlowiek"
       },
+      "olaf hubner": {
+        "count": 3,
+        "last": 1793113982,
+        "name": "Olaf",
+        "npcId": "e98b4334",
+        "postal": false,
+        "recipient": "Olaf Hubner",
+        "roomHashes": [
+          "e496a6590850316b"
+        ],
+        "short": "lysy zgarbiony mezczyzna",
+        "title": "Olaf Hubner, Mistrz Zlotniczy, czlowiek"
+      },
       "olaff meier mlodszy": {
         "count": 13,
         "last": 1792891636,
@@ -334,8 +408,8 @@
         ]
       },
       "poczta miasteczka kreutzhofen": {
-        "count": 12,
-        "last": 1792915351,
+        "count": 13,
+        "last": 1793110642,
         "postal": true,
         "recipient": "Poczta miasteczka Kreutzhofen",
         "roomHashes": [
@@ -352,8 +426,8 @@
         ]
       },
       "poczta w bissingen": {
-        "count": 11,
-        "last": 1792927203,
+        "count": 12,
+        "last": 1793109412,
         "postal": true,
         "recipient": "Poczta w Bissingen",
         "roomHashes": [
@@ -361,8 +435,8 @@
         ]
       },
       "poczta w campogrotta": {
-        "count": 4,
-        "last": 1792914587,
+        "count": 5,
+        "last": 1793113077,
         "postal": true,
         "recipient": "Poczta w Campogrotta",
         "roomHashes": [
@@ -370,8 +444,8 @@
         ]
       },
       "poczta w ebino": {
-        "count": 11,
-        "last": 1792912700,
+        "count": 13,
+        "last": 1793091125,
         "postal": true,
         "recipient": "Poczta w Ebino",
         "roomHashes": [
@@ -379,8 +453,8 @@
         ]
       },
       "poczta w jaskare": {
-        "count": 10,
-        "last": 1792920400,
+        "count": 11,
+        "last": 1793112386,
         "postal": true,
         "recipient": "Poczta w Jaskare",
         "roomHashes": [
@@ -397,8 +471,8 @@
         ]
       },
       "poczta w karak varn": {
-        "count": 4,
-        "last": 1792922609,
+        "count": 5,
+        "last": 1793089145,
         "postal": true,
         "recipient": "Poczta w Karak Varn",
         "roomHashes": [
@@ -406,10 +480,10 @@
         ]
       },
       "poczta w krainie zgromadzenia": {
-        "count": 5,
-        "last": 1792913884,
+        "count": 6,
+        "last": 1793111491,
         "postal": true,
-        "recipient": "Poczta w Krainie Zgromadzenia",
+        "recipient": "poczta w krainie zgromadzenia",
         "roomHashes": [
           "907327356ecc2f87"
         ]
@@ -491,8 +565,8 @@
         "title": "Reinhard Fleischer, rzeznik, czlowiek"
       },
       "rolph ederson": {
-        "count": 14,
-        "last": 1792882108,
+        "count": 15,
+        "last": 1793091973,
         "name": "Rolph",
         "npcId": "0dfb3842",
         "postal": false,
@@ -512,6 +586,19 @@
           "9c63a5b8e685fc50"
         ]
       },
+      "rotruda alinion": {
+        "count": 2,
+        "last": 1793112314,
+        "name": "Rotruda",
+        "npcId": "56cc66ab",
+        "postal": false,
+        "recipient": "Rotruda Alinion",
+        "roomHashes": [
+          "f68b0dcb952257eb"
+        ],
+        "short": "orlonosa zgarbiona kobieta",
+        "title": "Rotruda Alinion, Zielarka z Jouinard"
+      },
       "rudolf karczmarz": {
         "count": 8,
         "last": 1792918808,
@@ -526,8 +613,8 @@
         "title": "Rudolf Karczmarz, czlowiek"
       },
       "tarinolli scherzoni": {
-        "count": 10,
-        "last": 1792921360,
+        "count": 19,
+        "last": 1793110177,
         "name": "Tarinolli",
         "npcId": "a4348f54",
         "postal": false,
@@ -539,18 +626,18 @@
         "title": "Tarinolli Scherzoni, Piekarz Pierwsza Klasa, niziolek"
       },
       "torquato di assemani": {
-        "count": 23,
-        "last": 1792915003,
+        "count": 30,
+        "last": 1793108810,
         "name": "Torquato",
         "npcId": "bd2fce7e",
         "postal": false,
         "recipient": "Torquato di Assemani",
         "roomHashes": [
+          "06c7bfc0793a5a4b",
           "d297e64b2288c337",
           "ef767d747f0a4d13",
           "ff91072fd68491f6",
           "b86129bbefdb9e71",
-          "06c7bfc0793a5a4b",
           "269ff0c7899bbd55",
           "32a0096f3c307d7f"
         ],
@@ -567,8 +654,8 @@
         ]
       },
       "urzad pocztowy miasta urbimo": {
-        "count": 1,
-        "last": 1792863240,
+        "count": 3,
+        "last": 1793090810,
         "postal": true,
         "recipient": "Urzad pocztowy miasta Urbimo",
         "roomHashes": [
@@ -585,8 +672,8 @@
         ]
       },
       "urzad pocztowy w campogrotta": {
-        "count": 7,
-        "last": 1792921209,
+        "count": 8,
+        "last": 1793109908,
         "postal": true,
         "recipient": "Urzad pocztowy w Campogrotta",
         "roomHashes": [
@@ -612,8 +699,8 @@
         ]
       },
       "urzad pocztowy w nuln": {
-        "count": 21,
-        "last": 1792925606,
+        "count": 24,
+        "last": 1793113778,
         "postal": true,
         "recipient": "Urzad pocztowy w Nuln",
         "roomHashes": [
@@ -639,8 +726,8 @@
         ]
       },
       "urzad pocztowy w varieno": {
-        "count": 4,
-        "last": 1792926068,
+        "count": 5,
+        "last": 1793113260,
         "postal": true,
         "recipient": "Urzad pocztowy w Varieno",
         "roomHashes": [
@@ -674,8 +761,8 @@
         "title": "Virien, Kaplan Sigmara, mezczyzna"
       },
       "vito cattanei": {
-        "count": 11,
-        "last": 1792920903,
+        "count": 12,
+        "last": 1793090827,
         "name": "Vito",
         "npcId": "871d37ac",
         "postal": false,
