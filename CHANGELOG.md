@@ -1,5 +1,12 @@
 # Zmiany
 
+## 1.5.20
+
+- Start na poczcie po pełnym przeładowaniu, także bez zapisanego kursu: odświeżenie GMCP i oczekiwanie na potwierdzoną lokację zamiast błędnego komunikatu o trasach Nuln.
+- `/paczki poczta tutaj` odświeża brakującą lub niezgodną pozycję przed rozpoznaniem urzędu.
+- Diagnostyka pokazuje lokację GMCP, pokój mapy i zgodność identyfikatorów; osobny komunikat dla lokacji brakującej na mapie.
+- Regresje Campogrotta po restarcie, brak mapy, niezgodny pokój i STOP przed nadejściem danych.
+
 ## 1.5.19
 
 - Publiczna wspólna baza: 63 adresatów i 69 lokalizacji z trzech zatwierdzonych eksportów Groro, Yarrim i Morrid.

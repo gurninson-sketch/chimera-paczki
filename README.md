@@ -9,7 +9,7 @@ Pobierz [najnowsze wydanie](https://github.com/gurninson-sketch/chimera-paczki/r
 1. W Mudlecie wpisz `/bot stop` i poczekaj na zakończenie trwającej operacji ruchu lub plecaka.
 2. Zastąp cały folder `<profil>/chimera_wtyczki/chimera_paczki` folderem z ZIP-a (25 plików Lua).
 3. Wpisz `/przeladuj` i zaczekaj na zakończenie ładowania.
-4. Sprawdź `/paczki diagnostyka` — wersja 1.5.19. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
+4. Sprawdź `/paczki diagnostyka` — wersja 1.5.20. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
 
 Dotychczasowe wersje do 1.5.12 wymagają tego jednorazowego skopiowania kodu, aby otrzymać aktualizator. Powtórz instalację osobno na każdym profilu.
 
@@ -27,6 +27,12 @@ Aktualizator pobiera wyłącznie stabilne GitHub Releases z tego repozytorium. S
 Wymagane: Chimera **5.0.0-beta.13 lub 5.0.1**, Mudlet **4.20+** dla aktualizacji internetowych. Dostęp do GitHub Releases musi działać na komputerze gracza.
 
 Aktualizacja z 1.5.13/1.5.14 do 1.5.15: pobierz ZIP i jednorazowo nadpisz cały folder dodatku, potem `/przeladuj`. Stary aktualizator może ignorować odpowiedzi po przekierowaniu GitHuba. Od 1.5.15 pobieranie odbywa się do osobnych plików i ten błąd jest naprawiony.
+
+## Start na poczcie po przeładowaniu
+
+Po pełnym `/przeladuj` moduły GMCP mogą jeszcze nie mieć aktualnej pozycji, mimo widocznego opisu pokoju i załadowanej mapy. Przy starcie na rozpoznanej z opisu poczcie poza tekstowymi trasami Nuln bot odświeża dane GMCP, czeka na potwierdzoną postać i zgodną lokację na mapie, a następnie kontynuuje start. Dotyczy to też `/paczki poczta tutaj` przy brakującej lub niezgodnej pozycji. Sam opis poczty i stary cache Mudleta nie stanowią podstawy do wybrania paczki. STOP anuluje oczekiwanie.
+
+`/paczki diagnostyka` pokazuje bieżącą nazwę i ID lokacji GMCP, pokój i ID mapy oraz ich zgodność. Jeśli świeżej lokacji brakuje na mapie profilu, bot zgłasza potrzebę wczytania mapy. Pobranie wspólnej bazy adresów nie wgrywa geometrii mapy.
 
 ## Kolejność paczek (od 1.5.14)
 

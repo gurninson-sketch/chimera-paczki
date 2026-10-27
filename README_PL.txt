@@ -1,4 +1,4 @@
-PACZKI 1.5.19 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
+PACZKI 1.5.20 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
 Zgodność: 5.0.0-beta.13 i 5.0.1; 27 października 2026
 
 WYBÓR PACZEK OD 1.5.14
@@ -944,3 +944,12 @@ od załadowania i co 6 godzin. Import czeka na zatrzymanie botów oraz
 rozliczenie operacji; wcześniej zapisuje kopię lokalnej bazy.
 Nowe eksporty dodaj do data/address_sources/ w repozytorium GitHub.
 GitHub Actions waliduje i scala źródła. Bot sam nie wysyła eksportów.
+
+START NA POCZCIE PO PEŁNYM PRZEŁADOWANIU — 1.5.20
+
+Brak bieżącej pozycji po /przeladuj uruchamia odświeżenie GMCP także
+bez zapisanego kursu, np. na poczcie Campogrotta. Bot kontynuuje po
+potwierdzeniu aktualnej postaci i zgodności lokacji z mapą.
+/paczki poczta tutaj przy nieznanej pozycji również odświeża dane.
+/paczki diagnostyka pokazuje ID lokacji GMCP, pokój mapy i zgodność.
+Brak lokacji na mapie jest osobnym problemem; baza adresów nie zastępuje mapy.

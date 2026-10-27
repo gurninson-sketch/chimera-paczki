@@ -189,8 +189,8 @@ T.test("the installed version and public city fallback are visible in side-effec
     M.input("/paczki paczka "..FULL)
     local before=#M.sent;M.clear_output();M.input("/paczki");M.input("/paczki diagnostyka")
     T.eq(before,#M.sent,"diagnostics sent game commands")
-    T.contains(M.text(),"1.5.19");T.contains(M.text(),"Campogrotta");T.contains(M.text(),"bundled")
-    T.eq("1.5.19",api.version);T.eq("1.5.19",C.version);T.eq(0,#app.errors,M.text())
+    T.contains(M.text(),"1.5.20");T.contains(M.text(),"Campogrotta");T.contains(M.text(),"bundled")
+    T.eq("1.5.20",api.version);T.eq("1.5.20",C.version);T.eq(0,#app.errors,M.text())
 end)
 T.test("partial or conflicting stored identities are not rebound to a convenient current Torquato record",function()
     for _,kind in ipairs({"partial","conflict"}) do

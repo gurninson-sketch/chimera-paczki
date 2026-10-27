@@ -18,7 +18,7 @@ return {
     name = "kurier_paczki",
     title = "Paczki",
     section = "boty",
-    version = "1.5.19",
+    version = "1.5.20",
     related = { "bots", "walker", "automation", "npcs" },
     description = "Kurier: wybor paczek, baza /npc, doreczenia i powrot do urzedu nadania",
     deps = { "bots", "gmcp", "walker", "mapper", "npcs", "locations", "bags", "world" },
@@ -347,23 +347,33 @@ return {
             if emergency then emergency.cancel(reason or "Odwrót anulowany.") end
             if recovery then recovery.cancel(reason) end
         end
+        local function positionReady()
+            local room=gmcp_api.room();local map=mapper.current_room()
+            if not gmcp_api.connected() or not room or not room.id then
+                return false,"Czekam na aktualna lokacje GMCP."
+            end
+            if type(map)~="number" or map<=0 or mapper.chimera_id(map)~=room.id then
+                local mapped=getRoomIDbyHash(room.id)
+                if type(mapped)~="number" or mapped<=0 then
+                    return false,"Biezacej lokacji GMCP nie ma na mapie profilu. Wczytaj aktualna mape."
+                end
+                return false,"Czekam na zgodna pozycje mapy i GMCP."
+            end
+            return true
+        end
         local function sessionReady(expected)
             local character=gmcp_api.char()
             if not expected or not character or C.norm(character.name)~=C.norm(expected) then
                 return false,"Czekam na aktualne dane postaci GMCP."
             end
-            local room=gmcp_api.room();local map=mapper.current_room()
-            if not gmcp_api.connected() or not room or not room.id or type(map)~="number" or map<=0 or mapper.chimera_id(map)~=room.id then
-                return false,"Czekam na aktualna pozycje GMCP na mapie."
-            end
-            return true
+            return positionReady()
         end
         local function active()
             return C and (C.mode == "running" or C.mode == "learning" or C.mode == "resting" or C.mode=="recovering")
         end
         local function currentOffice()
             local source=navigator.current()
-            if not source or type(source.map)~="number" or source.map<=0 or not source.id then return end
+            if not source or type(source.map)~="number" or source.map<=0 or not source.id or mapper.chimera_id(source.map)~=source.id then return end
             if postal.disabled(source.id) then return end
             for _,known in ipairs(offices.catalogue()) do
                 if source.id==known.id then
@@ -423,6 +433,10 @@ return {
             forgetRun=checkpoint.forget,
             actor=function() local character=gmcp_api.char();return character and character.name end,
             sessionReady=sessionReady,
+            needsPositionRefresh=function(room)
+                return room and postal.resolve(room.title)~=nil and not positionReady()
+            end,
+            refreshPosition=function(command) waitSession(command) end,
             restorePlace=function(place)
                 local map=place and getRoomIDbyHash(place.id)
                 if type(map)~="number" or map<=0 or map~=math.floor(map) or mapper.chimera_id(map)~=place.id then return end
@@ -794,7 +808,8 @@ return {
             ctx.log.info(C.lastPause)
             sessionDeadline=ctx:timer(60,function()
                 if sessionWait==waiting then
-                    cancelSession("Serwer nie potwierdzil danych GMCP przez 60 s. Kurs pozostaje zapisany; sprawdz polaczenie i ponow /paczki wznow.")
+                    local _,why=sessionReady(C.actor)
+                    cancelSession("Nie potwierdzono pozycji przez 60 s: "..tostring(why or "brak aktualnych danych GMCP").." Uzyj /paczki diagnostyka; potem ponow /paczki wznow.")
                 end
             end)
             local function request()
@@ -818,7 +833,9 @@ return {
                 ctx.log.warn("Dziala juz bot. Najpierw /bot stop.")
                 return
             end
-            if C.needsResumeValidation and not sessionReady(C.actor) then waitSession(command);return end
+            local selectingOffice=C.norm(command):match("^(%S+)")=="poczta"
+            if (C.needsResumeValidation and not sessionReady(C.actor)) or
+                (selectingOffice and not positionReady()) then waitSession(command);return end
             cancelSession(nil)
             queued = command
             bots.start("paczki")
@@ -907,6 +924,8 @@ return {
             if not route and C.job then route,problem=navigator.resolve(C.job.name,C.source) end
             local state=searchStatus(route)
             local planning=planner.status()
+            local here=navigator.current()
+            local positionGood,positionWhy=positionReady()
             local crossing=loadTransport(C.actor)
             local banks={["891456eab7637380"]="przystan Blekitnej Wstegi",["2e1aa32a45a83107"]="przystan w Gorach Czarnych"}
             local crossingText=crossing and ((banks[crossing.fromHash] or "przystan").." -> "..(banks[crossing.toHash] or "przystan")) or "brak zapisu przeprawy"
@@ -914,8 +933,11 @@ return {
                 crossing.fareDeferred and "schowanie odlozone do rozliczenia paczki" or crossing.fareFinished and "obsluga reszty zakonczona" or
                 crossing.farePending and "oczekiwanie na potwierdzenie" or "etap przed rozliczeniem reszty"
             local rows={
-                {"Wersja Paczek","1.5.19; silnik "..tostring(C.version).."; NPC "..tostring(navigator.version)},
+                {"Wersja Paczek","1.5.20; silnik "..tostring(C.version).."; NPC "..tostring(navigator.version)},
                 {"Stan",C.mode.." / "..C.phase},
+                {"Lokacja GMCP",tostring(here.name or "brak").."; id "..tostring(here.id or "brak")},
+                {"Pokoj mapy",tostring(here.map or "brak").."; id "..tostring(here.map and mapper.chimera_id(here.map) or "brak")},
+                {"Pozycja",positionGood and "mapa zgodna z GMCP" or positionWhy},
                 {"Planowanie",tostring(planning.active).." aktywne; "..tostring(planning.slices).." porcji; "..tostring(planning.yields).." oddan sterowania"},
                 {"Porcja CPU",string.format("maks. %.2f ms od zaladowania",planning.maxSliceMs)},
                 {"Adresat",C.job and C.job.name or "brak aktywnej paczki"},
@@ -930,7 +952,7 @@ return {
                 {"Dane miasta",state.metadataSource or "nie ustalono"},
                 {"Znane miejsca",tostring(state.knownRooms or (route and #route.rooms) or 0)},
             }
-            ctx:report("Paczki / Diagnostyka 1.5.19",rows)
+            ctx:report("Paczki / Diagnostyka 1.5.20",rows)
         end
         -- Update checks may run during a course. The code swap itself needs
         -- fresh, positively clear server state and zero outstanding ownership.
@@ -947,7 +969,7 @@ return {
         ctx:on("chimera.walk.stopped",function() updateWalk=false end)
         local reloadSources
         local updater=require("chimera_paczki.updater").create(ctx,{
-            version="1.5.19",now=timingClock,
+            version="1.5.20",now=timingClock,
             safe=function()
                 if disposed or owned or bots.status() or updateWalk or sessionWait or emergencyLease or
                     next(pendingTravel) or C.pending or C.walking or C.mode=="running" or C.mode=="resting" or
@@ -1027,7 +1049,7 @@ return {
             local detected=bagStatus.detectedPack
             if type(detected)=="table" then detected=detected.name end
             local search=searchStatus(C.job and C.job.route)
-            ctx:table("Boty / Paczki 1.5.19", { { max = 18 }, { color = "gray" } }, {
+            ctx:table("Boty / Paczki 1.5.20", { { max = 18 }, { color = "gray" } }, {
                 { "Sterowanie", { cell("[start]", "/bot paczki", "green"), cell("  [1 paczka]", "/paczki start 1", "green"),
                     cell("  [stop]", "/paczki stop", "orange"), cell("  [wznow]", "/paczki wznow") } },
                 { "Stan", C.mode .. " / " .. C.phase },
@@ -1160,6 +1182,6 @@ return {
             bots.unregister("paczki")
         end)
         return { engine=C, panel=panel, stop=stop, navigator=navigator, offices=offices, inventory=inventory, memory=memory, checkpoint=checkpoint,eta=eta,
-            planner=planner,updater=updater,sharedBase=sharedBase,transportState=loadTransport,sessionWaiting=function() return sessionWait~=nil end, version="1.5.19" }
+            planner=planner,updater=updater,sharedBase=sharedBase,transportState=loadTransport,sessionWaiting=function() return sessionWait~=nil end, version="1.5.20" }
     end,
 }
