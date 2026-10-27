@@ -98,6 +98,7 @@ return function(ctx,bags,opts)
     local settle=math.max(0.05,math.min(2,tonumber(opts.settle) or 0.25))
     local api={version="1.5.11"}
     local active,disposed,parcelState,parcelVersion,pending=nil,false,"unknown",0,nil
+    local denomination
     local coinReceipt,coinWithdrawalReceipt,coinPending,coinsUncertain=0,0,nil,false
     local parcelContainer,detectedPack,lastReason
     local notices={}
@@ -166,8 +167,9 @@ return function(ctx,bags,opts)
     function api.parcelState() return parcelState end
     function api.coinReceipt() return coinReceipt end
     function api.coinWithdrawalReceipt() return coinWithdrawalReceipt end
-    function api.phase() return active and active.phase or "idle" end
-    function api.status() return {phase=api.phase(),kind=active and active.kind,state=parcelState,active=active~=nil,
+    function api.phase() return active and active.phase or (denomination and denomination.phase) or "idle" end
+    function api.status() return {phase=api.phase(),kind=active and active.kind or (denomination and "monety"),state=parcelState,
+        active=active~=nil or denomination~=nil,
         detectedPack=detectedPack,parcelContainer=parcelContainer and parcelContainer.d,
         autoDetect=auto_detect(),reason=lastReason,coinsUncertain=coinsUncertain} end
     function api.exportState()
@@ -176,7 +178,7 @@ return function(ctx,bags,opts)
     end
     function api.restoreState(snapshot)
         if disposed then return false,"obsluga pojemnikow wylaczona" end
-        if active then return false,"trwa operacja pojemnika; nie mozna przywrocic stanu" end
+        if active or denomination then return false,"trwa operacja pojemnika; nie mozna przywrocic stanu" end
         if type(snapshot)~="table" or not ({hands=true,bag=true,unknown=true})[snapshot.state] then
             return false,"nieprawidlowy zapis stanu paczki"
         end
@@ -202,8 +204,10 @@ return function(ctx,bags,opts)
         if active and active.parcel then finish(active,false,"stan paczki zostal zmieniony przez potwierdzenie gry") end
         return true
     end
+    local finish_denomination
     function api.cancel()
-        if active then finish(active,false,"przerwane") end
+        if denomination then finish_denomination(denomination,false,"przerwane")
+        elseif active then finish(active,false,"przerwane") end
     end
 
     local function commands(kind,verb,item)
@@ -396,9 +400,12 @@ return function(ctx,bags,opts)
         end)
         send(op,"i")
     end
-    local function start(kind,verb,item,done)
+    local function start(kind,verb,item,done,owner)
         if disposed then done({ok=false,reason="obsluga pojemnikow wylaczona",state=parcelState});return function() end end
-        if active then done({ok=false,reason="trwa inna operacja pojemnika",state=parcelState});return function() end end
+        if active or (denomination and denomination~=owner) then
+            done({ok=false,reason="trwa inna operacja pojemnika",state=parcelState});return function() end
+        end
+        if owner and (denomination~=owner or owner.finished) then return function() end end
         -- A later operation owns its own replies. Never apply an obsolete
         -- cancelled coin transfer to a newer command's receipt.
         coinPending=nil
@@ -420,7 +427,7 @@ return function(ctx,bags,opts)
         if stored then list=container_commands(stored,verb,item)
         elseif hasConfig then list,why=commands(kind,verb,item) end
         if (stored or hasConfig) and not list then done({ok=false,reason=why,state=parcelState});return function() end end
-        local op={kind=kind,verb=verb,item=item,parcel=parcel,commands=list,done=done,stateBefore=parcelState,attempts=0}
+        local op={kind=kind,verb=verb,item=item,parcel=parcel,commands=list,done=done,stateBefore=parcelState,attempts=0,owner=owner}
         active=op
         if list then
             if not open_close() then list.open,list.close=nil,nil end
@@ -436,8 +443,85 @@ return function(ctx,bags,opts)
     function api.stowCoins(done) return start("monety","wloz","monety",done) end
     function api.takeCoins(done) return start("monety","wez","monety",done) end
 
+    local function denomination_alive(op)
+        return not disposed and denomination==op and not op.finished
+    end
+    finish_denomination=function(op,ok,reason)
+        if denomination~=op or op.finished then return end
+        local phase=op.phase
+        op.finished,denomination=true,nil
+        clear(op,"timer")
+        -- Release the owner before cancelling its transfer: a synchronous
+        -- callback or a late receipt cannot start the next bank command.
+        if active and active.owner==op then finish(active,false,reason or "przerwane") end
+        lastReason=reason
+        op.done({ok=ok,reason=reason,phase=phase,changed=op.changed,withdrawn=op.withdrawn,stored=op.stored,
+            uncertain=coinsUncertain or (op.exchangeSent and not op.exchangeAcknowledged) or false,state=parcelState})
+    end
+    local function denomination_transfer(op,verb,phase,callback)
+        if not denomination_alive(op) then return end
+        op.phase=phase
+        local token={}
+        op.transferToken=token
+        start("monety",verb,"monety",function(value)
+            if not denomination_alive(op) or op.transferToken~=token then return end
+            op.transferToken=nil
+            if not value or not value.ok or value.moved~=true or value.skipped or value.closeFailed then
+                finish_denomination(op,false,(value and (value.reason or value.warning)) or "brak potwierdzenia przeniesienia monet")
+                return
+            end
+            callback(value)
+        end,op)
+    end
+    local function denomination_exchange(op)
+        if not denomination_alive(op) then return end
+        op.phase="denominate"
+        op.timer=ctx:timer(timeout,function()
+            if not denomination_alive(op) or op.phase~="denominate" then return end
+            op.timer=nil
+            finish_denomination(op,false,"brak potwierdzenia denominacji; nie powtarzam komendy")
+        end)
+        -- Arm the exact-own-reply gate before sending, including for a
+        -- synchronous sender. A denomination event alone is not a receipt.
+        op.exchangeSent=true
+        local ok,sent=pcall(sender,"zdenominuj")
+        if denomination_alive(op) and op.phase=="denominate" and (not ok or sent==false) then
+            finish_denomination(op,false,"nie udalo sie wyslac komendy denominacji")
+        end
+    end
+    function api.denominate(done)
+        if disposed then done({ok=false,reason="obsluga pojemnikow wylaczona",state=parcelState});return function() end end
+        if active or denomination then
+            done({ok=false,reason="trwa inna operacja pojemnika",state=parcelState});return function() end
+        end
+        local op={done=done,phase="withdraw"}
+        denomination=op
+        denomination_transfer(op,"wez","withdraw",function(value)
+            op.withdrawn=value
+            denomination_exchange(op)
+        end)
+        return function() if denomination==op then finish_denomination(op,false,"przerwane") end end
+    end
+
     local function on_line(raw)
         local text=norm(raw)
+        local bank=denomination
+        if bank and denomination_alive(bank) and bank.phase=="denominate" and bank.exchangeSent then
+            local changed=text=="twoje pieniadze zostaly zdenominowane."
+            local unchanged=text=="twoje pieniadze juz sa maksymalnie zdenominowane."
+            if changed or unchanged then
+                bank.changed,bank.exchangeAcknowledged=changed,true
+                clear(bank,"timer")
+                denomination_transfer(bank,"wloz","store",function(value)
+                    bank.stored=value
+                    finish_denomination(bank,true)
+                end)
+                return
+            elseif text=="hmm?" then
+                finish_denomination(bank,false,"gra nie rozpoznala komendy denominacji")
+                return
+            end
+        end
         local op=active
         -- Only an exact own reply from an outstanding transfer can update a
         -- cancelled parcel operation. It cannot invoke done or send anything.
@@ -534,16 +618,19 @@ return function(ctx,bags,opts)
     end)
     ctx:on("chimera.session.end",function()
         coinPending,detectedPack=nil,nil
-        if active then finish(active,false,"rozlaczenie") end
+        if denomination then finish_denomination(denomination,false,"rozlaczenie")
+        elseif active then finish(active,false,"rozlaczenie") end
     end)
     ctx:on("chimera.paczki.actor.changed",function()
         pending,coinPending,parcelContainer,detectedPack=nil,nil,nil,nil
         coinsUncertain=false
-        if active then finish(active,false,"zmieniono postac") end
+        if denomination then finish_denomination(denomination,false,"zmieniono postac")
+        elseif active then finish(active,false,"zmieniono postac") end
     end)
     if ctx.cleanup then ctx:cleanup(function()
         disposed=true
-        if active then finish(active,false,"przeladowanie kuriera") end
+        if denomination then finish_denomination(denomination,false,"przeladowanie kuriera")
+        elseif active then finish(active,false,"przeladowanie kuriera") end
         -- Keep confirmed semantic state readable for a final checkpoint even
         -- after cleanup, while discarding every live acknowledgement token.
         pending,coinPending,detectedPack=nil,nil,nil

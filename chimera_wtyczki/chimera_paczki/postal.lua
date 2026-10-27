@@ -14,6 +14,9 @@ local OFFICES = {
     { id="78c41b4fab38b2b5", name="Urzad pocztowy Varieno", city="Varieno" },
     { id="e8337482d2ae8342", name="Poczta w Jouinard", city="Jouinard" },
     { id="269ff0c7899bbd55", name="Poczta w Campogrotta", city="Campogrotta" },
+    -- This counter accepts deliveries, but has no board for issuing parcels.
+    { id="d69d73a15fc1b87d", name="Ebinska placowka kurierska", city="Ebino", deliveryOnly=true,
+        aliases={"Poczta w Ebino"} },
     { id="0a647e20ca6f97f7", name="Urzad pocztowy Urbimo", city="Urbimo" },
     { id="a99c7f47e46ffcc8", name="Glowny urzad pocztowy Athkatli", city="Athkatla",
         forms={"Athkatla","Athkatli"} },
@@ -50,7 +53,8 @@ local function norm(value)
     return (value:lower():gsub("%s+"," "):gsub("^%s+",""):gsub("[%s%.]+$",""))
 end
 local function copy(record)
-    return {id=record.id,name=record.name,city=record.city,staticNuln=record.staticNuln}
+    return {id=record.id,name=record.name,city=record.city,staticNuln=record.staticNuln,
+        deliveryOnly=record.deliveryOnly}
 end
 local GENERIC={ ["poczta"]=true,["urzad pocztowy"]=true,
     ["filia imperialnej poczty"]=true,["filia poczty imperialnej"]=true }

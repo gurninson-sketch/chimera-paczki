@@ -1,5 +1,5 @@
-PACZKI 1.5.16 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
-Zgodność: 5.0.0-beta.13 i 5.0.1; 26 października 2026
+PACZKI 1.5.17 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
+Zgodność: 5.0.0-beta.13 i 5.0.1; 27 października 2026
 
 WYBÓR PACZEK OD 1.5.14
 
@@ -9,6 +9,19 @@ waga tylko jako limit, cena i ETA informacyjne. Starsze opisy trybów
 zarobek/zaplata/lekkie poniżej są historią i nie zmieniają tej reguły.
 Aktualizacja z GitHuba: /bot stop, /paczki aktualizuj. Po zakończeniu:
 /paczki diagnostyka i /paczki wznow. Nie resetuj bazy.
+
+BANK W NULN OD 1.5.17
+
+Domyślnie co 30 minut, po rozliczeniu paczki, bot odwiedza bank Nuln:
+potwierdzone wyjęcie monet -> zdenominuj -> własne potwierdzenie wymiany
+-> potwierdzone schowanie -> powrót na pocztę Nuln i dalsze dostawy.
+/paczki bank 30 ustawia minuty (1-1440), bank teraz zleca wizytę,
+bank status pokazuje termin, bank off/on steruje wizytami okresowymi.
+Termin i etap są zapisywane osobno dla postaci. Przerwanej wymiany bot
+nie ponawia. Po ręcznej wymianie i schowaniu monet: /paczki bank rozliczone,
+potem /paczki wznow. Wymagana mapa banku/poczty i pojemnik monet.
+Ebino służy doręczeniom, bez nadawania paczek; po dostawie bot wybiera
+inną pocztę. Potwierdzony brak tablicy jest zapamiętywany między sesjami.
 
 INSTALACJA I AKTUALIZACJA
 
@@ -73,7 +86,7 @@ zapis bieżącej postaci i jej statystyki, ale nie usuwa przedmiotu w grze.
 
 OFERTY, NAZWY FILII I POWODY POMIJANIA PACZEK
 
-Wspólny rejestr 24 poczt rozpoznaje pełne warianty nazw, m.in. „Urzad
+Wspólny rejestr 25 poczt rozpoznaje pełne warianty nazw, m.in. „Urzad
 pocztowy w Nuln”, „Poczta wolnego miasta Nuln”, „Urzad pocztowy w Urbimo”,
 „Poczta miasteczka Varieno”, Crimmor, Karak Varn/Karak-Varn oraz widoczne
 w grze Kreutzhoffen. Dotyczą znanych, zweryfikowanych lokalizacji.

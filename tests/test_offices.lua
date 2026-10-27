@@ -11,6 +11,7 @@ local NULN="6f2c03461c2f1438"
 local KZ="907327356ecc2f87"
 local BISSINGEN="200aff4d957642cd"
 local UBERSREIK="54fa7e4634a30c23"
+local EBINO="d69d73a15fc1b87d"
 local function fresh(config)
     local e={time=1000,maps={[NULN]=1,[KZ]=2,[BISSINGEN]=3,[UBERSREIK]=4},costs={},calls={},
         current={map=1,id=NULN,name="Poczta"}}
@@ -33,7 +34,7 @@ local function fresh(config)
 end
 
 test("catalogue has only exact office rooms and returns independent copies",function()
-    local o,e=fresh();local catalogue=o.catalogue();eq(#catalogue,24)
+    local o,e=fresh();local catalogue=o.catalogue();eq(#catalogue,25)
     local seen={}
     for _,room in ipairs(catalogue) do
         check(type(room.id)=="string" and #room.id==16);check(not seen[room.id]);seen[room.id]=true
@@ -43,7 +44,7 @@ test("catalogue has only exact office rooms and returns independent copies",func
     check(seen[NULN]);check(seen[KZ]);check(seen[BISSINGEN])
     catalogue[1].name="corrupted";eq(o.catalog()[1].name,"Poczta")
 end)
-test("nearest safe one-way office wins even when its round trip is longer",function()
+test("diagnostic candidates sort by safe outward cost rather than round trip",function()
     local o,e=fresh();e:path(1,2,10,100);e:path(1,3,12,1)
     local candidates,why=o.candidates(e.current)
     eq(why,nil);eq(#candidates,2);eq(candidates[1].id,KZ);eq(candidates[2].id,BISSINGEN)
@@ -81,7 +82,7 @@ test("empty-office cooldown prevents ping-pong and expires after 600 seconds",fu
     e.current={map=3,id=BISSINGEN,name="Poczta"};check(o.markEmpty(e.current))
     eq(o.next(),nil,"recent empty offices cannot lead straight back to the previous office")
     e.time=1599;eq(o.remaining(KZ),1);eq(o.next(),nil)
-    e.time=1600;eq(o.remaining(KZ),0);eq(o.next().id,KZ)
+    e.time=1600;eq(o.remaining(KZ),0);eq(o.next().id,NULN,"expired offices return in stable registry order")
 end)
 test("clear one source and clearAll reset only their intended cooldown state",function()
     local o,e=fresh();e:path(1,2,10,10);e:path(1,3,12,12)
@@ -118,11 +119,103 @@ test("cost alias and exceptions are handled without leaking partial candidates",
 end)
 test("selection is deterministic for equal costs and does not share result records",function()
     local o,e=fresh();e:path(1,2,10,10);e:path(1,3,10,10)
-    local first=o.next();eq(first.id,BISSINGEN,"equal costs sort by stable room hash")
+    local first=o.next();eq(first.id,KZ,"automatic selection follows stable registry order")
     first.name="corrupted";first.id="wrong"
-    local again=o.next();eq(again.id,BISSINGEN);eq(again.name,"Poczta")
+    local again=o.next();eq(again.id,KZ);eq(again.name,"Glowna sala poczty w Krainie Zgromadzenia")
     e.current={map=2,id=KZ,name="Glowna sala poczty w Krainie Zgromadzenia"}
     local nuln=o.next();eq(nuln.id,NULN);eq(nuln.staticNuln,true)
+end)
+
+test("automatic selection stops after the first safe dispatch office while diagnostics remain complete",function()
+    local o,e=fresh();e:path(1,2,50,51);e:path(1,3,1,2);e:path(1,4,3,4)
+    local selected=assert(o.next());eq(selected.id,KZ);eq(selected.cost,50)
+    eq(#e.calls,2,"one outward and one return search suffice for the first valid office")
+    eq(e.calls[1].from,1);eq(e.calls[1].to,2);eq(e.calls[2].from,2);eq(e.calls[2].to,1)
+    e.calls={}
+    local candidates=o.candidates();eq(#candidates,3);eq(#e.calls,6)
+    eq(candidates[1].id,BISSINGEN);eq(candidates[2].id,UBERSREIK);eq(candidates[3].id,KZ)
+    e.calls={};e.costs["2:1"]=nil
+    eq(assert(o.next()).id,BISSINGEN);eq(#e.calls,4,"one-way first office must be skipped")
+end)
+
+test("delivery-only counters stay in the catalogue but cannot issue or relocate to parcels",function()
+    local o,e=fresh();e.maps[EBINO]=5;e:path(1,5,1,1);e:path(1,2,10,11)
+    local allowed,why=o.canDispatch(EBINO);eq(allowed,false);check(why:find("nie nadaje",1,true)~=nil)
+    eq(o.canDispatch({id=EBINO}),false);eq(o.canDispatch(NULN),true)
+    local found
+    for _,office in ipairs(o.catalogue()) do if office.id==EBINO then found=office end end
+    check(found~=nil);eq(found.deliveryOnly,true);found.deliveryOnly=false
+    eq(o.canDispatch(EBINO),false,"mutating catalogue copies cannot enable a depot")
+    for _,query in ipairs({"Ebino","Poczta w Ebino","Ebinska placowka kurierska",EBINO}) do
+        local route,reason=o.resolve(query);eq(route,nil);check(reason:find("nie nadaje",1,true)~=nil)
+    end
+    eq(#e.calls,0,"reject a known depot before any route search")
+    local candidates=o.candidates();eq(#candidates,1);eq(candidates[1].id,KZ)
+    for _,route in ipairs(e.calls) do check(route.to~=5 and route.from~=5,"depot routes cannot be planned") end
+    e.calls={};eq(assert(o.next()).id,KZ);eq(#e.calls,2)
+    e.current={map=5,id=EBINO,name="Ebinska placowka kurierska"};e:path(5,1,4,5)
+    eq(assert(o.next()).id,NULN,"a courier can leave a delivery-only counter for a dispatch office")
+end)
+
+test("confirmed no-dispatch capability survives reload and excludes automatic and manual sources",function()
+    local saved,loads,saves=nil,0,0
+    local config={
+        loadCapabilities=function() loads=loads+1;return saved end,
+        saveCapabilities=function(snapshot) saves=saves+1;saved=snapshot;return true end,
+    }
+    local o,e=fresh(config);e:path(1,2,10,11);e:path(1,3,12,13)
+    eq(loads,1);eq(o.canDispatch(KZ),true);o.markEmpty(KZ)
+    eq(o.canDispatch(KZ),true,"an ordinary empty board is only a cooldown")
+    eq(saved,nil);eq(o.markNoDispatch({id=KZ}),true);eq(saves,1)
+    eq(saved.schema,1);eq(saved.noDispatch[KZ],true);eq(o.canDispatch(KZ),false)
+    o.clear();o.clearAll();eq(o.canDispatch(KZ),false,"cooldown resets cannot erase a capability observation")
+    eq(assert(o.next()).id,BISSINGEN)
+    local route,reason=o.resolve("Kraina Zgromadzenia");eq(route,nil);check(reason:find("brak tablicy",1,true)~=nil)
+    local reloaded,e2=fresh(config);e2:path(1,2,10,11);e2:path(1,3,12,13)
+    eq(loads,2);eq(reloaded.canDispatch(KZ),false);eq(assert(reloaded.next()).id,BISSINGEN)
+    saved.noDispatch[BISSINGEN]=true
+    eq(reloaded.canDispatch(BISSINGEN),true,"loaded state cannot share a mutable caller table")
+end)
+
+test("saved capability data accepts only schema-one boolean hash entries",function()
+    local snapshot={schema=1,noDispatch={[KZ:upper()]=true,[BISSINGEN]="true",[UBERSREIK]=false,
+        ["unknown"]=true,[1]=true,[string.rep("a",17)]=true}}
+    local o,e=fresh({loadCapabilities=function() return snapshot end})
+    eq(o.canDispatch(KZ),false);eq(o.canDispatch(BISSINGEN),true);eq(o.canDispatch(UBERSREIK),true)
+    for _,source in ipairs({"unknown",12,{}, {id=string.rep("a",15)}}) do
+        eq(o.markNoDispatch(source),false)
+    end
+    for _,invalid in ipairs({{}, {schema=2,noDispatch={[KZ]=true}}, {schema=1,noDispatch="bad"}}) do
+        local clean=fresh({loadCapabilities=function() return invalid end});eq(clean.canDispatch(KZ),true)
+    end
+    local clean=fresh({loadCapabilities=function() error("unavailable") end});eq(clean.canDispatch(KZ),true)
+end)
+
+test("an observed depot outside the registry remains excluded after reload without adding an address",function()
+    local dynamic="0123456789abcdef"
+    local saved
+    local config={loadCapabilities=function() return saved end,saveCapabilities=function(state) saved=state;return true end}
+    local o,e=fresh(config);e.current={map=6,id=dynamic,name="Placowka kurierska"}
+    e.maps[dynamic]=6;e:path(6,1,7,8)
+    eq(o.canDispatch(),true);eq(o.markNoDispatch(),true);eq(o.canDispatch(),false)
+    eq(assert(o.next()).id,NULN,"a newly learned delivery depot still has a safe way out")
+    local again=fresh(config);eq(again.canDispatch(dynamic),false);eq(#again.catalogue(),25)
+    for _,office in ipairs(again.catalogue()) do check(office.id~=dynamic,"capability observations cannot create registry addresses") end
+end)
+
+test("capability persistence errors preserve the confirmed runtime observation",function()
+    for _,save in ipairs({function() return false,"disk full" end,function() error("disk unavailable") end}) do
+        local o,e=fresh({saveCapabilities=save});e:path(1,2,10,11)
+        local saved,reason=o.markNoDispatch(KZ);eq(saved,false);check(type(reason)=="string")
+        eq(o.canDispatch(KZ),false);eq(o.next(),nil)
+    end
+    local saved
+    local o=fresh({saveCapabilities=function(snapshot) saved=snapshot end})
+    eq(o.markNoDispatch(KZ:upper()),true);eq(saved.noDispatch[KZ],true)
+    saved.noDispatch[BISSINGEN]=true;eq(o.canDispatch(BISSINGEN),true,"save callback receives an isolated snapshot")
+    local attempts=0
+    local retry=fresh({saveCapabilities=function() attempts=attempts+1;return attempts>1 end})
+    eq(retry.markNoDispatch(KZ),false);eq(retry.markNoDispatch(KZ),true);eq(attempts,2)
 end)
 test("manual city choice uses the actual position instead of the old issuing office",function()
     local o,e=fresh();e:path(1,3,5,5);e:path(4,3,30,31)

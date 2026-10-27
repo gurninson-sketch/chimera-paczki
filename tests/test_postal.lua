@@ -24,6 +24,7 @@ local expected = {
     { id="78c41b4fab38b2b5", name="Urzad pocztowy Varieno", city="Varieno" },
     { id="e8337482d2ae8342", name="Poczta w Jouinard", city="Jouinard" },
     { id="269ff0c7899bbd55", name="Poczta w Campogrotta", city="Campogrotta" },
+    { id="d69d73a15fc1b87d", name="Ebinska placowka kurierska", city="Ebino", deliveryOnly=true },
     { id="0a647e20ca6f97f7", name="Urzad pocztowy Urbimo", city="Urbimo" },
     { id="a99c7f47e46ffcc8", name="Glowny urzad pocztowy Athkatli", city="Athkatla" },
     { id="80f9aa1ca9d14ae6", name="Poczta", city="Wrota Baldura" },
@@ -41,10 +42,10 @@ local expected = {
     { id="2f613cc0de125521", name="Filia Poczty Imperialnej", city="Najemnicy" },
 }
 
-test("catalogue has the exact twenty-four working courier offices", function()
+test("catalogue has the exact courier counters and their dispatch capabilities", function()
     eq("1.5.7", postal.version)
     local rows = postal.catalogue()
-    eq(24, #rows)
+    eq(25, #rows)
     local by_id = {}
     for _, row in ipairs(rows) do
         assert(type(row.id) == "string" and not by_id[row.id], "missing or duplicate office hash")
@@ -55,8 +56,9 @@ test("catalogue has the exact twenty-four working courier offices", function()
         eq(want.name, row.name, want.city .. " title")
         eq(want.city, row.city, want.city .. " city")
         eq(want.staticNuln == true, row.staticNuln == true, want.city .. " static marker")
+        eq(want.deliveryOnly == true, row.deliveryOnly == true, want.city .. " delivery-only marker")
     end
-    eq(24, #postal.catalog())
+    eq(25, #postal.catalog())
 end)
 
 for _, want in ipairs(expected) do
@@ -142,11 +144,21 @@ test("every resolve and catalogue result is an isolated copy", function()
     assert(rows ~= alias and rows[1] ~= alias[1])
     rows[1].id, rows[1].city = "mutated", "mutated"
     table.remove(rows)
-    eq(24, #postal.catalogue())
+    eq(25, #postal.catalogue())
     local again = assert(postal.resolve("Poczta w Nuln"))
     eq("6f2c03461c2f1438", again.id)
     eq("Nuln", again.city)
     eq(true, again.staticNuln)
+end)
+
+test("Ebino remains a valid delivery address with an isolated delivery-only marker",function()
+    for _,label in ipairs({"Poczta w Ebino","Ebinska placowka kurierska","Urzad pocztowy w Ebino"}) do
+        local office=assert(postal.resolve(label),label)
+        eq("d69d73a15fc1b87d",office.id);eq("Ebino",office.city);eq(true,office.deliveryOnly)
+        office.deliveryOnly=false
+        eq(true,assert(postal.resolve(label)).deliveryOnly)
+    end
+    eq(nil,postal.disabled("d69d73a15fc1b87d"))
 end)
 
 test("Karak Varn and legacy dwarf-region labels point to the working courier counter only",function()

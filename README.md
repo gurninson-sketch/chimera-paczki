@@ -9,7 +9,7 @@ Pobierz [najnowsze wydanie](https://github.com/gurninson-sketch/chimera-paczki/r
 1. W Mudlecie wpisz `/bot stop` i poczekaj na zakończenie trwającej operacji ruchu lub plecaka.
 2. Zastąp cały folder `<profil>/chimera_wtyczki/chimera_paczki` folderem z ZIP-a (25 plików Lua).
 3. Wpisz `/przeladuj` i zaczekaj na zakończenie ładowania.
-4. Sprawdź `/paczki diagnostyka` — wersja 1.5.16. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
+4. Sprawdź `/paczki diagnostyka` — wersja 1.5.17. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
 
 Dotychczasowe wersje do 1.5.12 wymagają tego jednorazowego skopiowania kodu, aby otrzymać aktualizator. Powtórz instalację osobno na każdym profilu.
 
@@ -39,6 +39,25 @@ W obrębie typu obowiązuje numer na tablicy. Cena, waga, odległość i ETA nie
 ## Nieobecny adresat (od 1.5.16)
 
 Po 5 minutach aktywnego szukania po mieście bot wraca do urzędu nadania, wyjmuje paczkę i wysyła `zwroc paczke`. Dopiero potwierdzenie gry pozwala wyczyścić kurs i wybrać kolejny. Pełny adresat w tej placówce jest pomijany przez 30 minut, również przy innej wadze lub nagrodzie oferty. Limit można zmienić przez `/paczki szukanie 5` (minuty 1–60). Zatrzymanie lub rozłączenie zachowuje zamiar zwrotu i wykorzystany czas szukania; nierozstrzygniętej operacji bot nie powtarza. Podczas patrolu pomija lokal jawnie zamknięty do rana.
+
+## Bank w Nuln (od 1.5.17)
+
+Co 30 minut bot planuje denominację monet w banku Nuln. Najpierw kończy dostawę i rozlicza nagrodę; potem dociera do banku, wyjmuje monety, wysyła `zdenominuj` i chowa je ponownie. Każdy etap wymaga własnego potwierdzenia gry. Następnie wraca na pocztę w Nuln i kontynuuje dostawy. Odstęp liczy się od zakończonej wymiany; termin i etap wizyty są zapisywane osobno dla postaci. Przy pierwszym uruchomieniu termin wynosi 30 minut od startu.
+
+| Komenda | Działanie |
+| --- | --- |
+| `/paczki bank 30` | Ustawia odstęp w minutach, od 1 do 1440, i włącza wizyty |
+| `/paczki bank teraz` | Zleca wizytę po rozliczeniu paczki; przy zatrzymanym bocie czeka na start |
+| `/paczki bank status` | Pokazuje ustawienie, termin i etap wizyty |
+| `/paczki bank off` / `/paczki bank on` | Wyłącza / włącza okresowe wizyty |
+
+Przerwana wymiana nie jest powtarzana automatycznie. Jeśli bot zatrzymał się podczas operacji monet, dokończ denominację i schowaj monety ręcznie, potwierdź `/paczki bank rozliczone`, a potem użyj `/paczki wznow`. Wymagane są rozpoznane na mapie bank i poczta Nuln oraz pojemnik monet w `/pojemniki` lub automatycznie wykryty noszony plecak.
+
+## Placówki bez nadań
+
+Ebino pozostaje adresem doręczeń, ale nie jest wybierane do nadawania. Po rozliczeniu przesyłki bot przechodzi do kolejnej dostępnej poczty. Odpowiedź `Nie masz zadnej poczty.` na własny odczyt tablicy zapamiętuje brak nadań również po ponownym uruchomieniu. Pusta tablica z ofertami ma osobny, tymczasowy okres pomijania. `/paczki poczty stop` pozostawia bota w danej placówce.
+
+Przy braku odpowiednich ofert podsumowanie pojawia się przed szukaniem innej poczty. Bot wybiera pierwszą dostępną placówkę z bezpieczną drogą w obie strony, bez kosztownego przeliczania wszystkich urzędów.
 
 ## Zapisane dane
 

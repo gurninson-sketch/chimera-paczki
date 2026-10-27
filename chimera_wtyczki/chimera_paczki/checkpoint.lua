@@ -60,6 +60,14 @@ end
 local function sanitize(state)
     if type(state)~="table" then return nil,"nieprawidlowy zapis kursu" end
     local out={}
+    if state.bank~=nil then
+        local bank=state.bank
+        if type(bank)~="table" or not finite(bank.nextAt) or not optional_bool(bank.requested) or
+            (bank.stage~=nil and not ({travel=true,exchange=true,["return"]=true})[bank.stage]) then
+            return nil,"nieprawidlowy zapis wizyty w banku"
+        end
+        out.bank={nextAt=bank.nextAt,requested=bank.requested==true,stage=bank.stage}
+    end
     for _,field in ipairs({"source","pendingManualSource"}) do
         if state[field]~=nil then
             out[field]=office(state[field])

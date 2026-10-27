@@ -218,11 +218,11 @@ T.test("oferty shows the last source limit strategy per-row reasons and eligible
     T.eq(6.2,C.offersLimit);T.eq("local_first",C.offersStrategy);T.eq(IDS[1],sourceId(C.offersSource))
     T.eq("running",C.mode,M.text());T.ok(bots.status());T.eq(0,#app.errors,M.text())
 end)
-T.test("zero eligible offers log weight and route reasons before automatic movement to another office",function()
+T.test("zero eligible offers log reasons before moving to the first safe dispatch office in catalogue order",function()
     local app,bots,C,nav=start();launch()
     rows({"1. Poczta w Bissingen miedzymiastowa 8.00 kg 5 zlotych monet [x1]",
         "2. Nieznany Tragarz miejscowa 0.50 kg 18 zlotych monet [x1]"})
-    T.eq("wyjscie",nextSend());T.ok(C.relocation);T.eq(IDS[5],C.relocation.to.id)
+    T.eq("wyjscie",nextSend());T.ok(C.relocation);T.eq(IDS[6],C.relocation.to.id)
     local text=M.text();local evaluation=text:find("Ocena ofert:",1,true);local movement=text:find("Przechodze",1,true)
     T.ok(evaluation and movement and evaluation<movement,text)
     T.contains(C.norm(text),"waga");T.contains(C.norm(text),"trasa");T.contains(text,"/paczki oferty")

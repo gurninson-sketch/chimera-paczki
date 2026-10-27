@@ -20,7 +20,8 @@ jobs:
           ref: ${{ github.ref }}
           fetch-depth: 0
       - name: Install Lua runtime
-        run: sudo apt-get update && sudo apt-get install -y texlive-luatex
+        timeout-minutes: 10
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends texlive-luatex
       - name: Verify version tag
         env:
           RELEASE_TAG: ${{ inputs.tag || (github.ref_type == 'tag' && github.ref_name) || '' }}

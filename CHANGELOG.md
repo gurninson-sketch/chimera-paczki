@@ -1,5 +1,14 @@
 # Zmiany
 
+## 1.5.17
+
+- Okresowa denominacja w banku Nuln, domyślnie co 30 minut; `/paczki bank <minuty>`, `teraz`, `status`, `on/off`.
+- Wizyta po rozliczeniu paczki, potwierdzone wyjęcie monet, własne potwierdzenie `zdenominuj`, schowanie i powrót na pocztę Nuln.
+- Termin i etap wizyty zachowane osobno dla postaci; STOP, brak odpowiedzi i przerwana wymiana blokują dalsze polecenia.
+- Ebino jako punkt doręczeń bez nadawania; trwała pamięć potwierdzonych placówek bez tablicy.
+- Podsumowanie ofert przed szukaniem kolejnej poczty i wybór pierwszej bezpiecznej placówki bez przeliczania całego katalogu.
+- Ujednolicona instrukcja wznowienia po rozłączeniu: `/paczki wznow`.
+
 ## 1.5.16
 
 - Limit całego szukania po mieście: domyślnie 5 minut; `/paczki szukanie <minuty>`.

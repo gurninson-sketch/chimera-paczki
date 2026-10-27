@@ -18,7 +18,7 @@ return {
     name = "kurier_paczki",
     title = "Paczki",
     section = "boty",
-    version = "1.5.16",
+    version = "1.5.17",
     related = { "bots", "walker", "automation", "npcs" },
     description = "Kurier: wybor paczek, baza /npc, doreczenia i powrot do urzedu nadania",
     deps = { "bots", "gmcp", "walker", "mapper", "npcs", "locations", "bags", "world" },
@@ -289,7 +289,10 @@ return {
             cancelTiming()
             if not ok then ctx.log.warn("Nie zapisano pomiaru czasu kursu: "..tostring(why)) end
         end
-        local offices = createOffices(ctx,navigator,{planning=planner.active})
+        local offices = createOffices(ctx,navigator,{planning=planner.active,
+            loadCapabilities=function() return ctx:saved("mozliwosci_poczt",{}) end,
+            saveCapabilities=function(snapshot) return ctx:save("mozliwosci_poczt",snapshot) end,
+        })
         local owned, finishing, disposed = false, false, false
         local queued, runToken = nil, 0
         local launch, waitSession, cancelSession, checkSession
@@ -402,6 +405,14 @@ return {
                     start=tonumber(walkerSettings.zmeczenie_start) or 20,hp=tonumber(eventSettings.prog_hp) or 30}
             end,
             inventory=function(action,done) return inventory[action](done) end,
+            bankPlace=function(kind)
+                local id=kind=="bank" and "1b91bfe5e44cd714" or kind=="office" and "6f2c03461c2f1438" or nil
+                if not id then return end
+                local map=getRoomIDbyHash(id)
+                if type(map)~="number" or map<=0 or map~=math.floor(map) or mapper.chimera_id(map)~=id then return end
+                return {id=id,map=map,name=kind=="bank" and "Bank w Nuln" or "Poczta w Nuln",city="Nuln",staticNuln=kind=="office"}
+            end,
+            bankExchange=inventory.denominate,
             parcelState=inventory.setParcelState,
             coinReceipt=function() return inventory.coinReceipt() end,
             inventoryState=inventory.exportState,
@@ -421,6 +432,7 @@ return {
             source = currentOffice,
             currentOffice = currentOffice,
             resolveOffice = function(query) return offices.resolve(query) end,
+            canDispatch=offices.canDispatch,markNoDispatch=offices.markNoDispatch,
             clearTravelIntent = navigator.clearIntent,
             resolveRoute = navigator.resolve,
             planWork=planner.run,cooperate=planner.checkpoint,planning=planner.active,
@@ -901,7 +913,7 @@ return {
                 crossing.fareDeferred and "schowanie odlozone do rozliczenia paczki" or crossing.fareFinished and "obsluga reszty zakonczona" or
                 crossing.farePending and "oczekiwanie na potwierdzenie" or "etap przed rozliczeniem reszty"
             local rows={
-                {"Wersja Paczek","1.5.16; silnik "..tostring(C.version).."; NPC "..tostring(navigator.version)},
+                {"Wersja Paczek","1.5.17; silnik "..tostring(C.version).."; NPC "..tostring(navigator.version)},
                 {"Stan",C.mode.." / "..C.phase},
                 {"Planowanie",tostring(planning.active).." aktywne; "..tostring(planning.slices).." porcji; "..tostring(planning.yields).." oddan sterowania"},
                 {"Porcja CPU",string.format("maks. %.2f ms od zaladowania",planning.maxSliceMs)},
@@ -917,7 +929,7 @@ return {
                 {"Dane miasta",state.metadataSource or "nie ustalono"},
                 {"Znane miejsca",tostring(state.knownRooms or (route and #route.rooms) or 0)},
             }
-            ctx:report("Paczki / Diagnostyka 1.5.16",rows)
+            ctx:report("Paczki / Diagnostyka 1.5.17",rows)
         end
         -- Update checks may run during a course. The code swap itself needs
         -- fresh, positively clear server state and zero outstanding ownership.
@@ -934,7 +946,7 @@ return {
         ctx:on("chimera.walk.stopped",function() updateWalk=false end)
         local reloadSources
         local updater=require("chimera_paczki.updater").create(ctx,{
-            version="1.5.16",now=timingClock,
+            version="1.5.17",now=timingClock,
             safe=function()
                 if disposed or owned or bots.status() or updateWalk or sessionWait or emergencyLease or
                     next(pendingTravel) or C.pending or C.walking or C.mode=="running" or C.mode=="resting" or
@@ -1006,7 +1018,7 @@ return {
             local detected=bagStatus.detectedPack
             if type(detected)=="table" then detected=detected.name end
             local search=searchStatus(C.job and C.job.route)
-            ctx:table("Boty / Paczki 1.5.16", { { max = 18 }, { color = "gray" } }, {
+            ctx:table("Boty / Paczki 1.5.17", { { max = 18 }, { color = "gray" } }, {
                 { "Sterowanie", { cell("[start]", "/bot paczki", "green"), cell("  [1 paczka]", "/paczki start 1", "green"),
                     cell("  [stop]", "/paczki stop", "orange"), cell("  [wznow]", "/paczki wznow") } },
                 { "Stan", C.mode .. " / " .. C.phase },
@@ -1133,6 +1145,6 @@ return {
             bots.unregister("paczki")
         end)
         return { engine=C, panel=panel, stop=stop, navigator=navigator, offices=offices, inventory=inventory, memory=memory, checkpoint=checkpoint,eta=eta,
-            planner=planner,updater=updater,transportState=loadTransport,sessionWaiting=function() return sessionWait~=nil end, version="1.5.16" }
+            planner=planner,updater=updater,transportState=loadTransport,sessionWaiting=function() return sessionWait~=nil end, version="1.5.17" }
     end,
 }
