@@ -4,7 +4,8 @@ package.path="tests/?.lua;"..package.path
 local T=require("support.harness")
 local M=T.M
 local json=require("chimera.core.json")
-local updater=dofile("../chimera-native/chimera_wtyczki/chimera_paczki/updater.lua")
+local ROOT=arg[0]:gsub("\\","/"):match("^(.*)/tests/test_update_base_native%.lua$") or ".."
+local updater=dofile(ROOT.."/chimera_wtyczki/chimera_paczki/updater.lua")
 local HOME="6f2c03461c2f1438"
 local SHARED="https://raw.githubusercontent.com/gurninson-sketch/chimera-paczki/main/data/addresses.json"
 local paths={}
@@ -16,7 +17,7 @@ local function prepare()
     _G.downloadFile=function(path,url) paths[url]=path;M.http[#M.http+1]=url;return true,url end
     _G.getMudletVersion=function() return "4.20.0" end
     for _,name in ipairs(updater.files) do
-        M.write_file("chimera_wtyczki/chimera_paczki/"..name,read("../chimera-native/chimera_wtyczki/chimera_paczki/"..name))
+        M.write_file("chimera_wtyczki/chimera_paczki/"..name,read(ROOT.."/chimera_wtyczki/chimera_paczki/"..name))
     end
     local area=M.empty_map("Shared address fixture")
     addRoom(1);setRoomIDbyHash(1,HOME);setRoomName(1,"Poczta");setRoomArea(1,area);setRoomCoordinates(1,0,0,0)
@@ -93,15 +94,19 @@ T.test("shared sync command toggle persists and malformed response never changes
     T.eq(2,api.memory.count());M.input("/paczki baza synchronizacja on");T.eq(true,api.sharedBase.status().enabled)
     T.eq(0,#app.errors,M.text())
 end)
-T.test("the published sixty-three recipient catalogue imports intact and retains a profile's extra discovery",function()
+T.test("the current published catalogue imports intact and retains a profile's extra discovery",function()
     local app,api=start();seed(api)
-    local catalogue=json.decode(read("../chimera-native/data/addresses.json"))
+    local catalogue=json.decode(read(ROOT.."/data/addresses.json"))
+    local report=json.decode(read(ROOT.."/data/address_report.json"))
     local recipients,locations=0,0
     for _,record in pairs(catalogue.memory.records) do recipients=recipients+1;locations=locations+#record.roomHashes end
-    T.eq(63,recipients);T.eq(69,locations)
+    T.eq("chimera_paczki_address_report",report.format)
+    T.ok(recipients>0);T.eq(report.recipients,recipients);T.eq(report.locations,locations)
+    T.eq(nil,catalogue.memory.records["local recipient"],"local discovery must be absent from the shared catalogue")
     local before=#M.sent
     M.input("/paczki baza aktualizuj");complete(catalogue)
-    T.eq(64,api.memory.count());T.ok(api.memory.find("Local Recipient"))
+    T.eq(recipients+1,api.memory.count());T.ok(api.memory.find("Local Recipient"))
+    T.eq(HOME,api.memory.find("Local Recipient").roomHashes[1])
     for _,record in pairs(catalogue.memory.records) do
         local imported=api.memory.find(record.recipient)
         T.ok(imported,record.recipient);T.eq(#record.roomHashes,#imported.roomHashes)
@@ -109,7 +114,7 @@ T.test("the published sixty-three recipient catalogue imports intact and retains
         T.eq(record.postal,imported.postal);T.eq(record.count,imported.count)
     end
     M.input("/paczki baza aktualizuj");complete(catalogue)
-    T.eq(64,api.memory.count());T.eq(0,api.sharedBase.status().summary.added)
+    T.eq(recipients+1,api.memory.count());T.eq(0,api.sharedBase.status().summary.added)
     T.eq(before,#M.sent);T.eq(0,#app.errors,M.text())
 end)
 T.run()
