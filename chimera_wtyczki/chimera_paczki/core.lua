@@ -1,9 +1,9 @@
--- Chimera Paczki 1.5.15. Transport, navigation and timers are injected.
+-- Chimera Paczki 1.5.16. Transport, navigation and timers are injected.
 return function(data, api, saved)
-  local K = {version = "1.5.15", mode = "stopped", phase = "idle", timers = {}, epoch = 0, sessionNonce=0,
-    ownSend = false, routes = {}, nodes = {}, titles = {}, rejected = {}, customRoutes = {},
+  local K = {version = "1.5.16", mode = "stopped", phase = "idle", timers = {}, epoch = 0, sessionNonce=0,
+    ownSend = false, routes = {}, nodes = {}, titles = {}, rejected = {}, customRoutes = {}, unavailableRecipients = {},
     stats = {delivered = 0, gold = 0, silver = 0, copper = 0, started = nil},
-    config = {delay = 0.35, tempoSource = "walker", timeout = 10, refresh = 30, maxKg = 3.2, strategy = "local_first", roam = true, autoLearn=true, autoBackpack=true}}
+    config = {delay = 0.35, tempoSource = "walker", timeout = 10, refresh = 30, maxKg = 3.2, strategy = "local_first", roam = true, autoLearn=true, autoBackpack=true, searchSeconds=300, recipientCooldown=1800}}
   local reverse = {n="s", s="n", e="w", w="e", ne="sw", nw="se", se="nw", sw="ne", u="d", d="u"}
   local directionNames = {polnoc="n", poludnie="s", wschod="e", zachod="w", gora="u", dol="d",
     ["polnocny-wschod"]="ne", ["polnocny-zachod"]="nw", ["poludniowy-wschod"]="se", ["poludniowy-zachod"]="sw"}
@@ -30,6 +30,11 @@ return function(data, api, saved)
   K.moneyValue = value
   local function handover(s) return s:match("^wrecasz paczke adresatowi%.") or s:match("^zostawiasz przesylke w okienku urzedu pocztowego%.") end
   local function reward(s) return s:match("^adresat wrecza ci .- za trud%.") or s:match("^urzednik wyplaca ci .- za trud%.") end
+  local function returned(s)
+    return s:match("^zwracasz paczke") or s:match("^oddajesz paczke pracownikowi") or
+      s:match("^zwrociles paczke") or s:match("^zwrocilas paczke") or
+      s:match("^oddajesz przesylke z powrotem do urzedu%.")
+  end
   function K:parseOffer(text)
     local n,name,kind,kg,pay,count = norm(text):match("^(%d+)%.%s+(.-)%s+(%a+)%s+([%d%.,]+)%s+kg%s+(.-)%s*%[x(%d+)%]$")
     if not n or not ({miejscowa=true,miedzymiastowa=true,miedzykrainowa=true,miedzydomenowa=true})[kind] then return nil end
@@ -72,6 +77,30 @@ return function(data, api, saved)
     for _,id in pairs(self.timers) do api.cancel(id) end
     self.timers = {}
   end
+  function K:searchElapsed()
+    local job=self.job
+    if not job then return 0 end
+    local elapsed=job.searchElapsed or 0
+    if job.searchStartedAt then elapsed=elapsed+math.max(0,api.now()-job.searchStartedAt) end
+    return elapsed
+  end
+  function K:accountSearch()
+    if self.job then self.job.searchElapsed=self:searchElapsed();self.job.searchStartedAt=nil end
+  end
+  function K:startRecipientSearch(route)
+    if self.job and self.job.route==route and not self.job.returningUndelivered and not self.job.searchStartedAt then
+      self.job.searchStartedAt=api.now();self:checkpoint()
+    end
+  end
+  function K:searchRemaining() return math.max(0,self.config.searchSeconds-self:searchElapsed()) end
+  function K:recipientKey(name,source)
+    source=source or self.source
+    return norm(self.actor).."|"..tostring(source and source.id or "static_nuln").."|"..norm(name)
+  end
+  function K:deferRecipient(name,source)
+    self.unavailableRecipients[self:recipientKey(name,source)]=api.now()+self.config.recipientCooldown
+    self:save()
+  end
   function K:checkpoint()
     if not api.saveRun or not self.actor or self.suppressCheckpoint or self.runCleared then return end
     local job
@@ -79,7 +108,8 @@ return function(data, api, saved)
       local coinsPending=self.job.coinsPending==true
       if coinsPending and self.job.coinReceipt and api.coinReceipt and api.coinReceipt()>self.job.coinReceipt then coinsPending=false end
       job={name=self.job.name,recipientConfirmed=self.job.recipientConfirmed==true,delivered=self.job.delivered==true,
-        coinsPending=coinsPending,source=self.job.source}
+        coinsPending=coinsPending,source=self.job.source,searchElapsed=self:searchElapsed(),
+        returningUndelivered=self.job.returningUndelivered==true}
     end
     local state={source=self.source,job=job,relocation=self.relocation and {to=self.relocation.to,manual=self.relocation.manual==true},
       selectedName=self.selected and self.selected.name,pendingManualSource=self.pendingManualSource,
@@ -166,6 +196,8 @@ return function(data, api, saved)
       self.lastPlain=nil; self.exitCapture=nil
       if not ok then
         if norm(why):find("zmeczenie; krok nie zostal wykonany",1,true) then self:rest("Gra odmowila kroku ze zmeczenia.")
+        elseif why=="limit czasu szukania adresata w miescie" and not returning then
+          self.externalNavigation=nil;self:abandonRecipient(why)
         else self:pause("Nawigacja: "..tostring(why or "brak potwierdzenia celu")) end
         return
       end
@@ -255,6 +287,7 @@ return function(data, api, saved)
     if not finished and epoch==self.epoch then self.cancelInventory=cancel end
   end
   function K:pause(reason,quiet)
+    self:accountSearch()
     if api.cancelTiming then pcall(api.cancelTiming,reason or "pauza") end
     if self.pending and self.pending.kind == "move" then self.node = nil end
     self:clearTimers()
@@ -362,7 +395,7 @@ return function(data, api, saved)
   end
   function K:save()
     if api.save then
-      local ok = pcall(api.save, {config=self.config,customRoutes=self.customRoutes})
+      local ok = pcall(api.save, {config=self.config,customRoutes=self.customRoutes,unavailableRecipients=self.unavailableRecipients})
       if not ok then self:say("Nie udalo sie zapisac ustawien/trasy w profilu.") end
     end
   end
@@ -527,6 +560,8 @@ return function(data, api, saved)
       -- Classify from the server's explicit type BEFORE any route work.
       if not groups[o.kind] then
         detail.category="kind";detail.reason="paczki miedzydomenowe sa wylaczone z automatycznego wyboru"
+      elseif (self.unavailableRecipients[self:recipientKey(o.name)] or 0)>api.now() then
+        detail.category="cooldown";detail.reason="adresat czasowo pomijany po zwrocie niedoreczonej paczki"
       elseif type(o.kg)~="number" or o.kg>self.config.maxKg then
         detail.category="weight"
         detail.reason=type(o.kg)=="number" and string.format("waga %.2f kg przekracza limit %.2f kg",o.kg,self.config.maxKg) or "nie rozpoznano wagi paczki"
@@ -600,9 +635,9 @@ return function(data, api, saved)
     for _,row in ipairs(rows) do
       if row.eligible then accepted=accepted+1 else counts[row.category]=(counts[row.category] or 0)+1 end
     end
-    local labels={weight="waga",route="adresat lub trasa",kind="rodzaj doreczenia",deferred="po miejscowych",empty="wyczerpane",pay="nagroda",rejected="odmowa gry",time="czas kursu"}
+    local labels={weight="waga",route="adresat lub trasa",kind="rodzaj doreczenia",deferred="po miejscowych",cooldown="adresat odlozony",empty="wyczerpane",pay="nagroda",rejected="odmowa gry",time="czas kursu"}
     local reasons={}
-    for _,category in ipairs({"weight","route","kind","deferred","empty","pay","rejected","time"}) do
+    for _,category in ipairs({"weight","route","kind","deferred","cooldown","empty","pay","rejected","time"}) do
       if counts[category] then reasons[#reasons+1]=labels[category]..": "..counts[category] end
     end
     return "Ocena ofert: "..accepted.." z "..#rows.." spelnia warunki"..(#reasons>0 and " ("..table.concat(reasons,", ")..")" or "")..". /paczki oferty — przyczyny i ranking."
@@ -686,6 +721,61 @@ return function(data, api, saved)
       self:outbound()
     end)
   end
+  function K:abandonRecipient(reason)
+    if self.mode~="running" or not self.job or self.job.delivered then return end
+    self:accountSearch()
+    self.job.returningUndelivered=true
+    self:deferRecipient(self.job.name,self.job.source or self.source)
+    if api.cancelTiming then pcall(api.cancelTiming,"zwrot po nieudanym szukaniu") end
+    self:checkpoint()
+    self:say("Nie odnalazlem "..self.job.name.." w limicie szukania. Wracam do urzedu nadania i zwroce paczke.")
+    self:returnUndelivered()
+  end
+  function K:returnUndelivered()
+    local job=self.job
+    if self.mode~="running" or not job or not job.returningUndelivered then return end
+    if self.awaitingPickup or self.awaitingDelivery or self.awaitingReturn or self.awaitingReward then
+      self:pause("Wynik operacji z paczka niepotwierdzony; nie rozpoczynam zwrotu.");return
+    end
+    if api.travelPending and api.travelPending() then
+      self.phase="returnSettling"
+      if not self.timers.watchdog then self:watch("rozstrzygniecie kroku przed powrotem z paczka") end
+      self:later("returnWait",0.1,function() self:returnUndelivered() end);return
+    end
+    self:cancel("watchdog");self:cancel("returnWait")
+    local source=job.source or self.source
+    if not source or not source.id or not source.map then
+      self:pause("Brak potwierdzonego urzedu nadania; paczka pozostaje zapisana do zwrotu.");return
+    end
+    local function arrived()
+      local here=api.position and api.position()
+      if not here or here.id~=source.id or here.map~=source.map then
+        self:pause("Nie potwierdzono urzedu nadania; nie zwracam paczki.");return
+      end
+      self:inventory("takeParcel",function()
+        local current=api.position and api.position()
+        if not current or current.id~=source.id or current.map~=source.map then
+          self:pause("Zmieniono pozycje przed zwrotem; kurs zachowany.");return
+        end
+        self.phase="returnUndelivered";self.awaitingReturn=true;self:checkpoint()
+        self:watch("zwrot paczki w urzedzie nadania");self:sendCommand("zwroc paczke")
+      end)
+    end
+    self:navigate(source,arrived,true)
+  end
+  function K:finishReturn()
+    if self.job then self:deferRecipient(self.job.name,self.job.source or self.source) end
+    self:cancel("watchdog");self:cancel("action");self:cancel("recipientSearch")
+    self.awaitingReturn=false;self.awaitingPickup=false;self.awaitingDelivery=false;self.awaitingReward=false
+    self.manualDelivery=false;self.manualPickup=false;self.pendingManualSource=nil
+    self.job=nil;self.selected=nil;self.lastPause=nil
+    self:checkpoint()
+    if self.mode=="running" then
+      self.phase="returned"
+      self:say("Zwrot paczki potwierdzony. Adresat czasowo pomijany; sprawdzam nowe doreczenia.")
+      self:later("action",self:delay(),function() self:readBoard() end)
+    else self.phase="idle" end
+  end
   function K:waitForRecipient(reason,absent)
     local route=self.job and self.job.route
     if self.mode~="running" or not route then return false end
@@ -730,6 +820,7 @@ return function(data, api, saved)
     return true
   end
   function K:deliver()
+    self:accountSearch()
     if not self:recipientReady() then return end
     self:inventory("takeParcel",function() self:handoverParcel() end)
   end
@@ -850,7 +941,7 @@ return function(data, api, saved)
       end)
       return
     end
-    if self.job and not self.job.route then self.job.route=self:resolveRoute(self.job.name) end
+    if self.job and not self.job.route and not self.job.returningUndelivered then self.job.route=self:resolveRoute(self.job.name) end
     if self.job and self.job.delivered and not self.job.route then
       refuse("Kurs pozostaje zapisany. Paczka oddana, ale nie rozpoznano jej celu na aktualnej mapie; sprawdz baze /npc i mape przed wznowieniem.");return
     end
@@ -868,6 +959,7 @@ return function(data, api, saved)
       if office then self:adoptOffice(office)
       elseif not self.relocation then self.source=nil;self.staticSource=nil end
     end
+    if self.job and self.job.returningUndelivered then self:returnUndelivered();return end
     if self.relocation and not self.job then self:relocate(self.relocation.to,self.relocation.manual); return end
     if self.job and self.job.delivered and self.job.coinsPending then self:settleDelivery();return end
     if self.job and self.job.delivered and self.job.route and self.job.route.postal and api.currentOffice then
@@ -933,6 +1025,10 @@ return function(data, api, saved)
     -- A player may complete the remembered job after a navigation pause.
     -- Observe the actual command and server reply; never infer completion
     -- merely from stopping the bot or from a parcel disappearing in inventory.
+    if cmd=="zwroc paczke" and self.job and not self.job.delivered and self.mode~="learning" then
+      if self.mode=="running" then self:pause("Reczny zwrot paczki; czekam na odpowiedz gry.") end
+      self.awaitingReturn=true;self:checkpoint();return
+    end
     if cmd=="oddaj paczke" and self.job and not self.job.delivered and self.mode~="learning" then
       if self.mode=="running" then self:pause("Reczne oddanie paczki; czekam na odpowiedz gry.") end
       self.manualDelivery=true; self.awaitingDelivery=true
@@ -1057,9 +1153,8 @@ return function(data, api, saved)
       local pay=money(s)
       self.stats.gold=self.stats.gold+pay.gold; self.stats.silver=self.stats.silver+pay.silver; self.stats.copper=self.stats.copper+pay.copper
       self:checkpoint()
-    elseif self.awaitingReturn and (s:match("^zwracasz paczke") or s:match("^oddajesz paczke pracownikowi") or s:match("^zwrociles paczke") or s:match("^zwrocilas paczke")) then
-      self.awaitingReturn=false; self.job=nil
-      self:checkpoint()
+    elseif self.awaitingReturn and returned(s) then
+      self:finishReturn()
     end
   end
   function K:onLine(raw)
@@ -1138,11 +1233,7 @@ return function(data, api, saved)
       elseif self.phase=="pickup" then self:accepted(picked) end
       return
     end
-    if self.phase=="returnUnknown" and (s:match("^zwracasz paczke") or s:match("^oddajesz paczke pracownikowi") or s:match("^zwrociles paczke") or s:match("^zwrocilas paczke")) then
-      self:cancel("watchdog"); self.job=nil; self.awaitingReturn=false
-      self:checkpoint()
-      self:later("action",self:delay(),function() self:readBoard() end); return
-    end
+    if self.awaitingReturn and returned(s) then self:finishReturn();return end
     if handover(s) then
       if self.mode=="learning" and self.learning then
         local l=self.learning
@@ -1232,7 +1323,7 @@ return function(data, api, saved)
       (self.job and " | paczka: "..self.job.name..(self.job.delivered and " (oddana)" or " (w drodze)") or ""))
   end
   function K:help()
-    self:say("/kurier start [liczba] | stop | wznow | status | trasy | oferty | plecak auto/stop | limit <kg> | tempo <sekundy> | odswiezanie <sekundy> | tryb miejscowe | poczty auto/stop | poczta <miasto|tutaj> | paczka <adresat> | ucz <adresat> | nauka auto/stop | baza | reset")
+    self:say("/kurier start [liczba] | stop | wznow | status | trasy | oferty | plecak auto/stop | limit <kg> | tempo <sekundy> | odswiezanie <sekundy> | szukanie <minuty> | tryb miejscowe | poczty auto/stop | poczta <miasto|tutaj> | paczka <adresat> | ucz <adresat> | nauka auto/stop | baza | reset")
     self:say("Pierwszy start: bez paczki, w urzedzie nadania. /paczki npc Imie Nazwisko sprawdza baze /npc i mape. Trasy tekstowe oraz ich nauka zaczynaja sie na poczcie w Nuln.")
     if api.estimateTime then self:say("Kolejnosc: miejscowe, potem miedzymiastowe poczta -> poczta. Miedzydomenowe wylaczone. W grupie: numer tablicy; waga tylko jako limit. ETA i sr/min sa informacyjne.") end
   end
@@ -1343,6 +1434,10 @@ return function(data, api, saved)
       if not n or n<min or n>max then self:say("Podaj liczbe od "..min.." do "..max.."."); return end
       self.config[key]=n; self.rejected={}; self:save(); self:say("Ustawiono "..key.." = "..n)
       if verb=="limit" and api.resetOffices then api.resetOffices() end
+    elseif verb=="szukanie" then
+      local minutes=tonumber(arg)
+      if not minutes or minutes<1 or minutes>60 then self:say("/paczki szukanie <minuty 1-60>; obecnie "..(self.config.searchSeconds/60).." min.");return end
+      self.config.searchSeconds=minutes*60;self:save();self:say("Limit szukania adresata: "..minutes.." min.")
     elseif verb=="tryb" then
       if not ({miejscowe=true,zarobek=true,zaplata=true,lekkie=true})[norm(arg)] then
         self:say("Tryb: miejscowe. Najpierw miejscowe, potem miedzymiastowe poczta -> poczta."); return
@@ -1364,11 +1459,18 @@ return function(data, api, saved)
       K.config.delay=math.max(0.15,K.config.delay); K.config.refresh=math.max(5,K.config.refresh)
       -- Old saved rate/pay/light preferences cannot override local-first policy.
       K.config.strategy="local_first"
+      if type(c.searchSeconds)=="number" and c.searchSeconds>=60 and c.searchSeconds<=3600 then K.config.searchSeconds=c.searchSeconds end
+      if type(c.recipientCooldown)=="number" and c.recipientCooldown>=60 and c.recipientCooldown<=86400 then K.config.recipientCooldown=c.recipientCooldown end
       if type(c.roam)=="boolean" then K.config.roam=c.roam end
       if type(c.autoLearn)=="boolean" then K.config.autoLearn=c.autoLearn end
       if type(c.autoBackpack)=="boolean" then K.config.autoBackpack=c.autoBackpack end
       if c.tempoSource=="walker" or c.tempoSource=="courier" then K.config.tempoSource=c.tempoSource
       elseif tonumber(c.delay) and tonumber(c.delay)~=0.35 then K.config.tempoSource="courier" end
+    end
+    if type(saved.unavailableRecipients)=="table" then
+      for key,expiry in pairs(saved.unavailableRecipients) do
+        if type(key)=="string" and #key<=500 and type(expiry)=="number" and expiry>api.now() and expiry<math.huge then K.unavailableRecipients[key]=expiry end
+      end
     end
     if type(saved.customRoutes)=="table" then
       for key,r in pairs(saved.customRoutes) do if K:addRoute(r) then K.customRoutes[key]=r end end

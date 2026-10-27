@@ -69,11 +69,16 @@ local function sanitize(state)
     if state.job~=nil then
         local job=state.job
         if type(job)~="table" or not text(job.name) then return nil,"brak adresata zapamietanej paczki" end
-        for _,field in ipairs({"recipientConfirmed","delivered","coinsPending"}) do
+        for _,field in ipairs({"recipientConfirmed","delivered","coinsPending","returningUndelivered"}) do
             if not optional_bool(job[field]) then return nil,"nieprawidlowy stan zapamietanej paczki" end
         end
         out.job={name=text(job.name),recipientConfirmed=job.recipientConfirmed==true,
-            delivered=job.delivered==true,coinsPending=job.coinsPending==true}
+            delivered=job.delivered==true,coinsPending=job.coinsPending==true,
+            returningUndelivered=job.returningUndelivered==true}
+        if job.searchElapsed~=nil then
+            if not finite(job.searchElapsed) then return nil,"nieprawidlowy czas szukania adresata" end
+            out.job.searchElapsed=job.searchElapsed
+        end
         if job.source~=nil then
             out.job.source=office(job.source)
             if not out.job.source then return nil,"nieprawidlowy urzad nadania paczki" end

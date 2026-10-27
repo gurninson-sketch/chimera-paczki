@@ -18,7 +18,7 @@ return {
     name = "kurier_paczki",
     title = "Paczki",
     section = "boty",
-    version = "1.5.15",
+    version = "1.5.16",
     related = { "bots", "walker", "automation", "npcs" },
     description = "Kurier: wybor paczek, baza /npc, doreczenia i powrot do urzedu nadania",
     deps = { "bots", "gmcp", "walker", "mapper", "npcs", "locations", "bags", "world" },
@@ -179,6 +179,8 @@ return {
                 end
                 return false
             end,
+            onSearchStart=function(route) if C then C:startRecipientSearch(route) end end,
+            searchBudget=function() return C and C:searchRemaining() or 300 end,
             onSearchWait=function(route,scope)
                 if C and C.mode=="running" then
                     C.phase="searchingCity"
@@ -899,7 +901,7 @@ return {
                 crossing.fareDeferred and "schowanie odlozone do rozliczenia paczki" or crossing.fareFinished and "obsluga reszty zakonczona" or
                 crossing.farePending and "oczekiwanie na potwierdzenie" or "etap przed rozliczeniem reszty"
             local rows={
-                {"Wersja Paczek","1.5.15; silnik "..tostring(C.version).."; NPC "..tostring(navigator.version)},
+                {"Wersja Paczek","1.5.16; silnik "..tostring(C.version).."; NPC "..tostring(navigator.version)},
                 {"Stan",C.mode.." / "..C.phase},
                 {"Planowanie",tostring(planning.active).." aktywne; "..tostring(planning.slices).." porcji; "..tostring(planning.yields).." oddan sterowania"},
                 {"Porcja CPU",string.format("maks. %.2f ms od zaladowania",planning.maxSliceMs)},
@@ -915,7 +917,7 @@ return {
                 {"Dane miasta",state.metadataSource or "nie ustalono"},
                 {"Znane miejsca",tostring(state.knownRooms or (route and #route.rooms) or 0)},
             }
-            ctx:report("Paczki / Diagnostyka 1.5.15",rows)
+            ctx:report("Paczki / Diagnostyka 1.5.16",rows)
         end
         -- Update checks may run during a course. The code swap itself needs
         -- fresh, positively clear server state and zero outstanding ownership.
@@ -932,7 +934,7 @@ return {
         ctx:on("chimera.walk.stopped",function() updateWalk=false end)
         local reloadSources
         local updater=require("chimera_paczki.updater").create(ctx,{
-            version="1.5.15",now=timingClock,
+            version="1.5.16",now=timingClock,
             safe=function()
                 if disposed or owned or bots.status() or updateWalk or sessionWait or emergencyLease or
                     next(pendingTravel) or C.pending or C.walking or C.mode=="running" or C.mode=="resting" or
@@ -1004,7 +1006,7 @@ return {
             local detected=bagStatus.detectedPack
             if type(detected)=="table" then detected=detected.name end
             local search=searchStatus(C.job and C.job.route)
-            ctx:table("Boty / Paczki 1.5.15", { { max = 18 }, { color = "gray" } }, {
+            ctx:table("Boty / Paczki 1.5.16", { { max = 18 }, { color = "gray" } }, {
                 { "Sterowanie", { cell("[start]", "/bot paczki", "green"), cell("  [1 paczka]", "/paczki start 1", "green"),
                     cell("  [stop]", "/paczki stop", "orange"), cell("  [wznow]", "/paczki wznow") } },
                 { "Stan", C.mode .. " / " .. C.phase },
@@ -1018,6 +1020,7 @@ return {
                 { "Doreczono", tostring(C.stats.delivered) },
                 { "Zarobek", string.format("%d zlotych, %d srebrnych, %d miedzianych", C.stats.gold, C.stats.silver, C.stats.copper) },
                 { "Paczka", C.job and (C.job.name .. (C.job.delivered and " (oddana)" or " (w drodze)")) or "brak" },
+                { "Limit szukania", tostring(C.config.searchSeconds/60).." min; adresat pomijany przez "..tostring(C.config.recipientCooldown/60).." min po zwrocie" },
                 { "Wyszukiwanie NPC", { {text=(search.mode=="city" and "miasto: "..tostring(search.name or search.area or "") or tostring(search.reason or "znane miejsca")).."  "},cell("[diagnostyka]","/paczki diagnostyka") } },
                 { divider = true },
                 { "Maksymalna waga", { cell("[-]", string.format("/paczki limit %.1f", math.max(0.1,C.config.maxKg-0.5))),
@@ -1130,6 +1133,6 @@ return {
             bots.unregister("paczki")
         end)
         return { engine=C, panel=panel, stop=stop, navigator=navigator, offices=offices, inventory=inventory, memory=memory, checkpoint=checkpoint,eta=eta,
-            planner=planner,updater=updater,transportState=loadTransport,sessionWaiting=function() return sessionWait~=nil end, version="1.5.15" }
+            planner=planner,updater=updater,transportState=loadTransport,sessionWaiting=function() return sessionWait~=nil end, version="1.5.16" }
     end,
 }

@@ -25,7 +25,7 @@ UPSTREAMS = {
 }
 PURE = (
     "extended", "npc", "travel", "offices", "road", "ferry", "scope",
-    "journey", "inventory", "memory", "path", "postal", "checkpoint",
+    "journey", "inventory", "memory", "path", "postal", "checkpoint", "city_budget",
     "escape", "recovery", "eta", "eta_core", "karak_transport",
     "karak_journey", "city", "city_core", "city_data", "identity_upgrade",
     "planner", "planning_path", "ship_resume",

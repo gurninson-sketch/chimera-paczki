@@ -1,6 +1,10 @@
 -- Owned execution of ordinary map edges. Gate commands and movement are sent
 -- through the injected sender; the native walker is never started or patched.
 local STEP_TIMEOUT, GATE_TIMEOUT, MAX_GATE_OPENS = 15, 30, 2
+local CLOSED_LOCAL_REASON = "lokal zamkniety do rana; krok nie zostal wykonany"
+local function closed_local_denial(text)
+    return text:match("^o tej porze .- jest zamkniet") or text:match("^bedziesz musial poczekac do rana")
+end
 local DIRECTION = {
     n = "polnoc", s = "poludnie", e = "wschod", w = "zachod", u = "gora", d = "dol",
     ne = "polnocny-wschod", nw = "polnocny-zachod", se = "poludniowy-wschod", sw = "poludniowy-zachod",
@@ -689,10 +693,16 @@ return function(ctx, opts)
         if active then complete(active, false, "utracono pozycje na mapie") end
     end)
     local function on_line(raw)
-        local op = active
-        if not op or not alive(op) then return end
+        if not active and not drain then return end
         local text = norm(raw)
         local map, room = current()
+        -- A definite game refusal proves the outstanding step did not move,
+        -- including a step cancelled while its reply was still in flight.
+        if drain and map==drain.fromMap and room.id==drain.fromId and closed_local_denial(text) then
+            end_drain(CLOSED_LOCAL_REASON);return
+        end
+        local op = active
+        if not op or not alive(op) then return end
         if map ~= op.fromMap or room.id ~= op.fromId then return end
         local opened = text:find("brama zostaje otwarta", 1, true) or text:find("wrota zostaja otwarte", 1, true) or
             text:find("alez brama jest przeciez otwarta", 1, true) or text:find("alez wrota sa przeciez otwarte", 1, true)
@@ -711,7 +721,9 @@ return function(ctx, opts)
             local locked = text:find("wrota sa zamkniete", 1, true) or text:find("brama jest zamknieta", 1, true) or
                 text:find("drzwi sa zamkniete", 1, true)
             local no_exit = text:find("nie widzisz zadnego wyjscia", 1, true)
-            if text:find("nie posiadasz wystarczajacych umiejetnosci",1,true) or
+            if closed_local_denial(text) then
+                complete(op,false,CLOSED_LOCAL_REASON)
+            elseif text:find("nie posiadasz wystarczajacych umiejetnosci",1,true) or
                 text:find("nie masz wystarczajacych umiejetnosci",1,true) then
                 complete(op,false,"gra odmowila przejscia z powodu niewystarczajacych umiejetnosci")
             elseif locked or no_exit then

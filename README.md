@@ -9,7 +9,7 @@ Pobierz [najnowsze wydanie](https://github.com/gurninson-sketch/chimera-paczki/r
 1. W Mudlecie wpisz `/bot stop` i poczekaj na zakończenie trwającej operacji ruchu lub plecaka.
 2. Zastąp cały folder `<profil>/chimera_wtyczki/chimera_paczki` folderem z ZIP-a (25 plików Lua).
 3. Wpisz `/przeladuj` i zaczekaj na zakończenie ładowania.
-4. Sprawdź `/paczki diagnostyka` — wersja 1.5.15. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
+4. Sprawdź `/paczki diagnostyka` — wersja 1.5.16. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
 
 Dotychczasowe wersje do 1.5.12 wymagają tego jednorazowego skopiowania kodu, aby otrzymać aktualizator. Powtórz instalację osobno na każdym profilu.
 
@@ -35,6 +35,10 @@ Aktualizacja z 1.5.13/1.5.14 do 1.5.15: pobierz ZIP i jednorazowo nadpisz cały 
 3. **Międzydomenowe** (również `miedzykrainowa`) są wyłączone z automatycznego wyboru.
 
 W obrębie typu obowiązuje numer na tablicy. Cena, waga, odległość i ETA nie zmieniają kolejności. Waga musi mieścić się w ustawionym limicie. Oferty wyczerpane, odrzucone lub bez znanej drogi są pomijane z wyjaśnieniem w `/paczki oferty`. Przy dostępnej miejscowej nie liczymy tras dla międzymiastowych ani międzydomenowych. Dawne ustawienia `zarobek`, `zaplata`, `lekkie` nie przywracają starego rankingu.
+
+## Nieobecny adresat (od 1.5.16)
+
+Po 5 minutach aktywnego szukania po mieście bot wraca do urzędu nadania, wyjmuje paczkę i wysyła `zwroc paczke`. Dopiero potwierdzenie gry pozwala wyczyścić kurs i wybrać kolejny. Pełny adresat w tej placówce jest pomijany przez 30 minut, również przy innej wadze lub nagrodzie oferty. Limit można zmienić przez `/paczki szukanie 5` (minuty 1–60). Zatrzymanie lub rozłączenie zachowuje zamiar zwrotu i wykorzystany czas szukania; nierozstrzygniętej operacji bot nie powtarza. Podczas patrolu pomija lokal jawnie zamknięty do rana.
 
 ## Zapisane dane
 

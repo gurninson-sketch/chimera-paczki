@@ -1,4 +1,4 @@
-PACZKI 1.5.15 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
+PACZKI 1.5.16 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
 Zgodność: 5.0.0-beta.13 i 5.0.1; 26 października 2026
 
 WYBÓR PACZEK OD 1.5.14
@@ -900,3 +900,7 @@ tablicy; potem międzymiastowe poczta -> poczta. W nowym mieście ponownie
 miejscowe. Międzydomenowe/międzykrainowe nie są wybierane automatycznie.
 W grupie: numer tablicy. Waga tylko jako limit, cena i ETA informacyjne.
 Nie trzeba resetować bazy ani zapisanego kursu.
+
+1.5.16: /paczki szukanie 5 ustawia minuty szukania po mieście.
+Po limicie powrót, potwierdzony zwrot i pomijanie adresata przez 30 min.
+Przerwa zachowuje stan kursu. Szczegóły w README.md.

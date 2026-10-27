@@ -7,7 +7,9 @@ local PROBE_REFRESH = 0.3
 local SEARCH_LIMIT = 180 -- inactivity bound; valid movement extends long routes
 local PERIODIC_NAME = "annibale malacresta lettore"
 local PERIODIC_POLL = 10
+local CLOSED_LOCAL_REASON = "lokal zamkniety do rana; krok nie zostal wykonany"
 local CITY_RETRY = 30
+local CITY_SEARCH_BUDGET = 300 -- total active city search; room activity never refreshes it
 local postal = require("chimera_paczki.postal")
 local function disabled_postal(id) return postal.disabled(id) end
 local ACCENTS = {
@@ -632,6 +634,7 @@ return function(ctx, bots, gmcp_api, walker, mapper, npcs, locations, sendProbe,
         clear_timer(op, "waitTimer")
         clear_timer(op, "probeRefreshTimer")
         clear_timer(op, "limitTimer")
+        clear_timer(op, "searchBudgetTimer")
         clear_timer(op, "periodicProbeTimer")
         clear_timer(op, "cityPaceTimer")
         local cancel = op.cancelAction
@@ -995,7 +998,36 @@ return function(ctx, bots, gmcp_api, walker, mapper, npcs, locations, sendProbe,
                 (map==here.map or city.plan(scope,here.map,map)) then connected=true;break end
         end
         if not connected then return false end
+        if not op.cityBudgetStarted then
+            op.cityBudgetStarted=true
+            if options.onSearchStart then
+                local ok=pcall(options.onSearchStart,route,scope)
+                if not ok then finish(op,false,"nie mozna rozpoczac limitu szukania adresata");return true end
+            end
+            if operation~=op then return true end
+            local seconds=CITY_SEARCH_BUDGET
+            if options.searchBudget then
+                local ok,value=pcall(options.searchBudget,route)
+                if not ok or type(value)~="number" or value~=value or value>=math.huge then
+                    finish(op,false,"nie mozna ustalic limitu szukania adresata");return true
+                end
+                seconds=value
+            end
+            if seconds<=0 then finish(op,false,"limit czasu szukania adresata w miescie");return true end
+            op.searchBudgetTimer=ctx:timer(seconds,function()
+                if operation~=op then return end
+                op.searchBudgetTimer=nil
+                finish(op,false,"limit czasu szukania adresata w miescie")
+            end)
+        end
         op.cityScope,op.cityVisited,op.cityProbed=scope,{},{}
+        op.cityClosed=op.cityClosed or {}
+        local function available_plan(plan)
+            for _,step in ipairs(plan and plan.steps or {}) do
+                if op.cityClosed[step.map] then return nil end
+            end
+            return plan
+        end
         local key=search_key(route)
         local inspect,choose,probe,wait_round
         local function valid_here()
@@ -1054,7 +1086,17 @@ return function(ctx, bots, gmcp_api, walker, mapper, npcs, locations, sendProbe,
                     completed=true
                     if operation~=op then return end
                     op.cancelAction,op.moving=nil,false
-                    if not result or not result.ok then finish(op,false,result and result.reason or "krok poszukiwan niepotwierdzony");return end
+                    if not result or not result.ok then
+                        if result and result.reason==CLOSED_LOCAL_REASON then
+                            local here=api.current()
+                            if here.map==one.from and here.id==one.fromId then
+                                op.cityClosed[one.target]=true
+                                op.cityVisited[one.target]=true
+                                inspect();return
+                            end
+                        end
+                        finish(op,false,result and result.reason or "krok poszukiwan niepotwierdzony");return
+                    end
                     local here=api.current()
                     if here.map~=one.target or here.id~=one.targetId then finish(op,false,"niezgodna lokacja po kroku poszukiwan");return end
                     if op.cityEscapeRoom~=here.id then op.cityEscapeRoom=nil end
@@ -1107,11 +1149,11 @@ return function(ctx, bots, gmcp_api, walker, mapper, npcs, locations, sendProbe,
             if route.identityConflict and not cityCombat then finish(op,false,"baza NPC wskazuje sprzeczna tozsamosc adresata");return end
             local here,bestPlan,bestRank=api.current()
             for _,map in ipairs(route.rooms) do
-                if not op.cityVisited[map] and city.contains(scope,map) then
+                if not op.cityVisited[map] and not op.cityClosed[map] and city.contains(scope,map) then
                     local record=sighting(route,route.roomIds[map])
                     local rank=route.roomPriority and route.roomPriority[map] or 0
                     if record then rank=record.positive and (-1000000-record.version) or (1000000+rank) end
-                    local plan=city.plan(scope,here.map,map)
+                    local plan=available_plan(city.plan(scope,here.map,map))
                     if plan and (not bestPlan or rank<bestRank or (rank==bestRank and plan.cost<bestPlan.cost)) then
                         bestPlan,bestRank=plan,rank
                     end
@@ -1122,8 +1164,8 @@ return function(ctx, bots, gmcp_api, walker, mapper, npcs, locations, sendProbe,
                 -- for every urban room after each ACK in a large city.
                 if not op.cityRooms then op.cityRooms=city.rooms(scope) or {} end
                 for _,map in ipairs(op.cityRooms) do
-                    if not op.cityVisited[map] then
-                        bestPlan=city.plan(scope,here.map,map)
+                    if not op.cityVisited[map] and not op.cityClosed[map] then
+                        bestPlan=available_plan(city.plan(scope,here.map,map))
                         if bestPlan then break end
                         op.cityVisited[map]=true
                     end
@@ -1368,6 +1410,9 @@ return function(ctx, bots, gmcp_api, walker, mapper, npcs, locations, sendProbe,
     end)
     ctx:on("chimera.walk.stopped", function(event)
         local op = operation
+        -- The local city-step callback owns this confirmed no-move refusal.
+        -- All other stopped events keep their original cancellation semantics.
+        if op and op.cityScope and op.moving and event and event.reason==CLOSED_LOCAL_REASON then return end
         if op then finish(op, false, event and event.reason or "chodzik zatrzymany") end
     end)
     ctx:on("chimera.numpad.pressed", function()

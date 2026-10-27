@@ -227,8 +227,8 @@ T.test("the last named observation in the city outranks a different last success
     for _,step in ipairs(s.moves) do T.ok(step.to~=3,"old success took priority over a newer named observation") end
     cityOnly(s)
 end)
-T.test("an unsuccessful city circuit remains autonomous beyond ordinary navigation timeout and accepts a later arrival",function()
-    local app,bots,C,nav,s=start();begin(s);M.advance(320)
+T.test("an unsuccessful city circuit stays autonomous past inactivity timeout within its search budget",function()
+    local app,bots,C,nav,s=start();begin(s);M.advance(220)
     T.eq("running",C.mode,M.text());T.ok(bots.status());T.eq(0,#s.attempts);T.ok(nav.inProgress)
     T.ok(#s.moves>4,"city search did not inspect streets beyond old target");cityOnly(s)
     s.npcAt=s.current;s:entities();finish(C,bots,app)

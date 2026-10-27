@@ -1,5 +1,13 @@
 # Zmiany
 
+## 1.5.16
+
+- Limit całego szukania po mieście: domyślnie 5 minut; `/paczki szukanie <minuty>`.
+- Po limicie powrót do urzędu nadania, wyjęcie paczki i zwrot; nowe doręczenie dopiero po potwierdzeniu gry.
+- Pomijanie pełnego adresata przez 30 minut, niezależnie od wagi/nagrody; stan osobny dla postaci i poczty.
+- Rozpoznawanie rzeczywistego potwierdzenia ręcznego i automatycznego zwrotu; zachowanie zamiaru zwrotu i wykorzystanego czasu po przerwie.
+- Pomijanie lokalu zamkniętego do rana podczas bieżącego patrolu bez ponawiania wejścia ani trwałej zmiany mapy.
+
 ## 1.5.15
 
 - Pobieranie manifestu i kodu przez downloadFile; obsługa przekierowań GitHuba przez dopasowanie unikalnej ścieżki pliku.
