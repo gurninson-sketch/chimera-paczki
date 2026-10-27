@@ -1,9 +1,9 @@
--- Chimera Paczki 1.5.17. Transport, navigation and timers are injected.
+-- Chimera Paczki 1.5.18. Transport, navigation and timers are injected.
 return function(data, api, saved)
-  local K = {version = "1.5.17", mode = "stopped", phase = "idle", timers = {}, epoch = 0, sessionNonce=0,
+  local K = {version = "1.5.18", mode = "stopped", phase = "idle", timers = {}, epoch = 0, sessionNonce=0,
     ownSend = false, routes = {}, nodes = {}, titles = {}, rejected = {}, customRoutes = {}, unavailableRecipients = {},
     stats = {delivered = 0, gold = 0, silver = 0, copper = 0, started = nil},
-    config = {delay = 0.35, tempoSource = "walker", timeout = 10, refresh = 30, maxKg = 3.2, strategy = "local_first", roam = true, autoLearn=true, autoBackpack=true, searchSeconds=300, recipientCooldown=1800,bankEnabled=true,bankSeconds=1800}}
+    config = {delay = 0.35, tempoSource = "walker", timeout = 10, refresh = 30, maxKg = 3.2, strategy = "local_first", roam = true, autoLearn=true, autoBackpack=true, searchSeconds=300, recipientCooldown=1800,bankEnabled=true,bankSeconds=7200,bankPolicy=2}}
   local reverse = {n="s", s="n", e="w", w="e", ne="sw", nw="se", se="nw", sw="ne", u="d", d="u"}
   local directionNames = {polnoc="n", poludnie="s", wschod="e", zachod="w", gora="u", dol="d",
     ["polnocny-wschod"]="ne", ["polnocny-zachod"]="nw", ["poludniowy-wschod"]="se", ["poludniowy-zachod"]="sw"}
@@ -112,7 +112,7 @@ return function(data, api, saved)
       if coinsPending and self.job.coinReceipt and api.coinReceipt and api.coinReceipt()>self.job.coinReceipt then coinsPending=false end
       job={name=self.job.name,recipientConfirmed=self.job.recipientConfirmed==true,delivered=self.job.delivered==true,
         coinsPending=coinsPending,source=self.job.source,searchElapsed=self:searchElapsed(),
-        returningUndelivered=self.job.returningUndelivered==true}
+        returningUndelivered=self.job.returningUndelivered==true,returnReason=self.job.returnReason}
     end
     local state={source=self.source,job=job,bank=self.bank,relocation=self.relocation and {to=self.relocation.to,manual=self.relocation.manual==true},
       selectedName=self.selected and self.selected.name,pendingManualSource=self.pendingManualSource,
@@ -131,6 +131,9 @@ return function(data, api, saved)
     self.suppressCheckpoint=true
     self.source=state.source or (state.job and state.job.source);self.staticSource=self.source and self.source.staticNuln==true or false;self.node=nil;self.lastRoom=nil
     self.job=state.job;self.relocation=state.relocation;self.bank=state.bank
+    if self.bank and self.bank.policy~=2 then
+      self.bank.policy=2;self.bank.nextAt=api.now()+self.config.bankSeconds
+    end
     if self.job then self.job.actor=self.actor;self.job.source=self.job.source or self.source end
     self.stats=state.stats or {delivered=0,gold=0,silver=0,copper=0,started=nil}
     self.stopAt=state.stopAt
@@ -521,10 +524,24 @@ return function(data, api, saved)
     self.lastPlain=nil; self.exitCapture=nil
     self:watch("ruch "..step.cmd); self:sendCommand(step.cmd)
   end
+  function K:bankAt(place)
+    local here=api.position and api.position()
+    return place and here and here.id==place.id and here.map==place.map or false
+  end
+  function K:bankAtOffice()
+    local office=api.bankPlace and api.bankPlace("office")
+    return office and self.source and self.source.id==office.id and self.source.map==office.map and self:bankAt(office) or false
+  end
+  function K:bankInArea()
+    for _,kind in ipairs({"office","street","bank"}) do
+      if self:bankAt(api.bankPlace and api.bankPlace(kind)) then return true end
+    end
+    return false
+  end
   function K:bankDue()
     if not api.bankPlace or not api.bankExchange or not self.actor then return false end
-    if not self.bank then self.bank={nextAt=api.now()+self.config.bankSeconds};self:checkpoint() end
-    return self.bank.stage~=nil or (self.config.bankEnabled and (self.bank.requested or api.now()>=self.bank.nextAt)) or false
+    if not self.bank then self.bank={nextAt=api.now()+self.config.bankSeconds,policy=2};self:checkpoint() end
+    return self.bank.stage~=nil or (self:bankAtOffice() and self.config.bankEnabled and (self.bank.requested or api.now()>=self.bank.nextAt)) or false
   end
   function K:bankVisit()
     if self.mode~="running" then return end
@@ -535,9 +552,18 @@ return function(data, api, saved)
     if held and held.coinsUncertain or self.savedInventoryUncertain then
       self:pause("Nie potwierdzono ostatniego przeniesienia monet; sprawdz pojemnik przed wizyta w banku.");return
     end
-    if not self.bank then self.bank={nextAt=api.now()+self.config.bankSeconds} end
+    if not self.bank then self.bank={nextAt=api.now()+self.config.bankSeconds,policy=2} end
     if self.bank.stage=="exchange" then
       self:pause("Przerwano wymiane monet. Po recznym zdenominowaniu i schowaniu monet uzyj /paczki bank rozliczone, a potem /paczki wznow.");return
+    end
+    -- A deadline/request never changes the intercity course. Only an already
+    -- started local visit may resume on the two-block post/bank corridor.
+    if (self.bank.stage and not self:bankInArea()) or (not self.bank.stage and not self:bankAtOffice()) then
+      if self.bank.stage then
+        self.bank.stage=nil;self:checkpoint()
+        self:say("Wizyta w banku odlozona do pobytu na poczcie w Nuln. Kontynuuje dostawy.")
+      end
+      return false
     end
     if api.travelPending and api.travelPending() then
       self.phase="bankSettling"
@@ -568,7 +594,7 @@ return function(data, api, saved)
     end
     if state.stage=="return" then returnToOffice();return end
     state.stage="travel";self:checkpoint()
-    self:say("Czas na denominacje monet. Ide do banku w Nuln po rozliczeniu ostatniej paczki.")
+    self:say("Jestem na poczcie w Nuln; przy okazji denominuję monety w pobliskim banku.")
     self:navigate(bank,function()
       if not at(bank) then self:pause("Nie potwierdzono polozenia banku w Nuln; nie wymieniam monet.");return end
       state.stage="exchange";self.phase="bankExchange";self:checkpoint()
@@ -606,22 +632,22 @@ return function(data, api, saved)
     elseif option=="teraz" then
       if not self.actor then self:say("Czekam na nazwe postaci GMCP przed zapisaniem wizyty w banku.");return end
       self.config.bankEnabled=true
-      self.bank=self.bank or {nextAt=api.now()+self.config.bankSeconds};self.bank.requested=true
+      self.bank=self.bank or {nextAt=api.now()+self.config.bankSeconds,policy=2};self.bank.requested=true
     elseif option~="" and option~="status" then
       local minutes=tonumber((option:gsub(",",".")))
       if not minutes or minutes~=minutes or minutes<1 or minutes>1440 then self:say("/paczki bank <minuty 1-1440> | teraz | on | off | status");return end
       self.config.bankSeconds=minutes*60;self.config.bankEnabled=true
-      if self.actor then self.bank=self.bank or {};self.bank.nextAt=api.now()+self.config.bankSeconds end
+      if self.actor then self.bank=self.bank or {};self.bank.nextAt=api.now()+self.config.bankSeconds;self.bank.policy=2 end
     end
     self:save()
     self.runCleared=nil;self:checkpoint()
     local due=self.bank and (self.bank.requested or self.bank.nextAt and api.now()>=self.bank.nextAt)
     self:say("Bank Nuln: "..(self.config.bankEnabled and "co "..(self.config.bankSeconds/60).." min" or "wylaczony")..
-      (self.bank and self.bank.stage and "; zapisana wizyta: "..self.bank.stage or due and "; wizyta po rozliczeniu paczki" or
-        self.bank and self.bank.nextAt and "; do wizyty: "..math.ceil(math.max(0,self.bank.nextAt-api.now())/60).." min" or "")..".")
+      (self.bank and self.bank.stage and "; zapisana wizyta: "..self.bank.stage or due and "; czekam na pobyt na poczcie w Nuln" or
+        self.bank and self.bank.nextAt and "; termin za: "..math.ceil(math.max(0,self.bank.nextAt-api.now())/60).." min" or "")..". Wizyty tylko przy okazji pobytu na poczcie Nuln.")
     if option=="teraz" and self.mode=="running" and not self.job and not self.bank.stage and
         not self.awaitingPickup and not self.awaitingDelivery and not self.awaitingReturn and not self.awaitingReward and
-        (self.phase=="board" or self.phase=="waiting" or self.phase=="planning" or self.phase=="ranking") then
+        (self.phase=="board" or self.phase=="waiting" or self.phase=="planning" or self.phase=="ranking") and self:bankAtOffice() then
       self:clearTimers();self:bankVisit()
     end
   end
@@ -828,21 +854,25 @@ return function(data, api, saved)
     -- The game's own pickup ACK confirms the already ranked recipient.
     -- Navigation still plans fresh road legs; do not block this event by
     -- recomputing every quote that was just used to choose the parcel.
-    local route=self.selected and norm(self.selected.name)==norm(name) and self.selected.route or nil
-    if not route then route=self:resolveRoute(name) end
+    local changed=self.selected and norm(self.selected.name)~=norm(name)
+    local route=not changed and self.selected and self.selected.route or nil
+    if not route and not changed then route=self:resolveRoute(name) end
     self.job={name=name,route=route,actor=self.actor,delivered=false,source=self.source,recipientConfirmed=true}
     if api.pickupTiming then pcall(api.pickupTiming,self.job) end
     if api.parcelState then api.parcelState("hands") end
     self:checkpoint()
-    if not route then
+    if changed or not route then
+      self.job.returningUndelivered=true
+      self.job.returnReason=changed and "pickupChanged" or "unknownRecipient"
+      if api.cancelTiming then pcall(api.cancelTiming,"zwrot niezamowionej paczki") end
       self.phase="returnUnknown"
-      self:say("Gra wydala paczke dla nieznanego adresata: "..name..". Zwracam ja w urzedzie nadania.")
+      self:checkpoint()
+      self:say((changed and "Zmienila sie numeracja tablicy. Gra wydala inna paczke: " or "Gra wydala paczke dla nieznanego adresata: ")..name..". Zwracam ja w urzedzie nadania i odczytam aktualna tablice.")
       self:later("action",self:delay(),function()
-        self.awaitingReturn=true; self:checkpoint(); self:watch("zwrot nieznanej paczki"); self:sendCommand("zwroc paczke")
+        self:returnUndelivered()
       end)
       return
     end
-    if self.selected and norm(name)~=self.selected.name then self:say("Zmiana numeracji ofert. Potwierdzony adresat: "..route.name..".") end
     self:later("action",self:delay(),function()
       self:outbound()
     end)
@@ -870,27 +900,34 @@ return function(data, api, saved)
     end
     self:cancel("watchdog");self:cancel("returnWait")
     local source=job.source or self.source
-    if not source or not source.id or not source.map then
+    local textSource=not api.position and not api.source and not source and self.staticSource~=false
+    if not textSource and (not source or not source.id or not source.map) then
       self:pause("Brak potwierdzonego urzedu nadania; paczka pozostaje zapisana do zwrotu.");return
     end
-    local function arrived()
+    local function atSource()
+      if textSource then return self.node=="home" and same(self.lastRoom,data.office) end
       local here=api.position and api.position()
-      if not here or here.id~=source.id or here.map~=source.map then
+      return here and here.id==source.id and here.map==source.map
+    end
+    local function arrived()
+      if not atSource() then
         self:pause("Nie potwierdzono urzedu nadania; nie zwracam paczki.");return
       end
       self:inventory("takeParcel",function()
-        local current=api.position and api.position()
-        if not current or current.id~=source.id or current.map~=source.map then
+        if not atSource() then
           self:pause("Zmieniono pozycje przed zwrotem; kurs zachowany.");return
         end
         self.phase="returnUndelivered";self.awaitingReturn=true;self:checkpoint()
         self:watch("zwrot paczki w urzedzie nadania");self:sendCommand("zwroc paczke")
       end)
     end
-    self:navigate(source,arrived,true)
+    if atSource() then arrived()
+    elseif textSource then self:pause("Nie potwierdzono poczty Nuln na trasie tekstowej; paczka pozostaje zapisana do zwrotu.")
+    else self:navigate(source,arrived,true) end
   end
   function K:finishReturn()
-    if self.job then self:deferRecipient(self.job.name,self.job.source or self.source) end
+    local unwanted=self.job and self.job.returnReason~=nil
+    if self.job and not unwanted then self:deferRecipient(self.job.name,self.job.source or self.source) end
     self:cancel("watchdog");self:cancel("action");self:cancel("recipientSearch")
     self.awaitingReturn=false;self.awaitingPickup=false;self.awaitingDelivery=false;self.awaitingReward=false
     self.manualDelivery=false;self.manualPickup=false;self.pendingManualSource=nil
@@ -898,7 +935,7 @@ return function(data, api, saved)
     self:checkpoint()
     if self.mode=="running" then
       self.phase="returned"
-      self:say("Zwrot paczki potwierdzony. Adresat czasowo pomijany; sprawdzam nowe doreczenia.")
+      self:say(unwanted and "Zwrot omylkowo wydanej paczki potwierdzony. Odczytuje aktualna tablice." or "Zwrot paczki potwierdzony. Adresat czasowo pomijany; sprawdzam nowe doreczenia.")
       self:later("action",self:delay(),function() self:readBoard() end)
     else self.phase="idle" end
   end
@@ -1010,6 +1047,7 @@ return function(data, api, saved)
       if not office then
         self:pause("Paczka oddana, ale nie potwierdzono polozenia poczty docelowej.");return
       end
+      local previous=self.job.source or self.source
       if api.finishTiming then pcall(api.finishTiming,self.job,office) end
       self.job=nil;self:adoptOffice(office)
       if self.stopAt and self.stats.delivered>=self.stopAt then
@@ -1017,6 +1055,19 @@ return function(data, api, saved)
       else
         local dispatch=not api.canDispatch or api.canDispatch(office)
         self:say("Doreczenie miedzy urzedami zakonczone: "..office.name..". "..(dispatch and "Sprawdzam paczki tutaj." or "Przechodze do poczty nadajacej paczki."))
+        if not dispatch and self.config.roam and previous and previous.id~=office.id and api.resolveOffice and
+            (not api.canDispatch or api.canDispatch(previous)) then
+          self.phase="planningOffice"
+          self:say("Placowka nie nadaje paczek. Sprawdzam powrot do ostatniej dzialajacej poczty: "..tostring(previous.name or previous.id)..".")
+          self:startPlanning(function() return api.resolveOffice(previous.id) end,function(available)
+            if available then self:relocate(available) else self:readBoard() end
+          end,function()
+            local current=api.position and api.position()
+            return self.source==office and not self.job and current and current.id==office.id and current.map==office.map,
+              "zmieniono polozenie po doreczeniu do placowki bez nadan"
+          end)
+          return
+        end
         self:readBoard()
       end
     else self:goHome() end
@@ -1054,7 +1105,7 @@ return function(data, api, saved)
     -- Checkpoints keep semantic destinations, never executable paths or local
     -- map numbers. Resolve also completed postal jobs before deciding where
     -- to work next, so a reload cannot send them back to the issuing office.
-    if self.job and not self.job.route and api.planWork then
+    if self.job and not self.job.route and not self.job.returningUndelivered and api.planWork then
       local job,source,here=self.job,self.source,api.position and api.position()
       self:clearTimers();self.mode="running";self.phase="planningCourse"
       self:startPlanning(function() return self:resolveRoute(job.name) end,function(route,why)
@@ -1084,7 +1135,7 @@ return function(data, api, saved)
     self.stats.started=self.stats.started or api.now()
     self:checkpoint()
     if self:checkFatigue() then return end
-    if self.bank and self.bank.stage and not self.job then self:bankVisit();return end
+    if self.bank and self.bank.stage and not self.job and self:bankVisit()~=false then return end
     if not resume and not self.job then
       local office=api.currentOffice and api.currentOffice()
       if office then self:adoptOffice(office)
@@ -1260,16 +1311,19 @@ return function(data, api, saved)
     end
     local picked=s:match("^bierzesz paczke przeznaczona dla: (.+)%.$")
     if picked and self.awaitingPickup then
+      local wasManual=self.manualPickup
+      local changed=not wasManual and self.selected and norm(self.selected.name)~=norm(picked)
       self.awaitingPickup=false
       if self.manualPickup and self.pendingManualSource then self:adoptOffice(self.pendingManualSource) end
       self.manualPickup=false;self.pendingManualSource=nil
-      local route=not self.manualPickup and self.selected and norm(self.selected.name)==norm(picked) and self.selected.route or nil
+      local route=not wasManual and not changed and self.selected and norm(self.selected.name)==norm(picked) and self.selected.route or nil
       -- A manual/late pickup needs no navigation while paused. Resolve its
       -- semantic destination when the player resumes the saved course.
       self.job={name=route and route.name or picked,route=route,actor=self.actor,delivered=false,source=self.source,recipientConfirmed=true}
+      if changed then self.job.returningUndelivered=true;self.job.returnReason="pickupChanged" end
       if api.parcelState then api.parcelState("hands") end
       self:checkpoint()
-      self:say("Gra potwierdzila odbior paczki; automat pozostaje wstrzymany.")
+      self:say(changed and "Gra wydala inna paczke niz wybrana. Automat pozostaje wstrzymany; /paczki wznow zwroci ja w urzedzie nadania." or "Gra potwierdzila odbior paczki; automat pozostaje wstrzymany.")
     elseif self.awaitingDelivery and self.job and handover(s) then
       self.awaitingDelivery=false; self.manualDelivery=false; self.awaitingReward=true; self.job.delivered=true
       self:captureDeliveryProof(self.job,s)
@@ -1601,7 +1655,8 @@ return function(data, api, saved)
       if type(c.autoLearn)=="boolean" then K.config.autoLearn=c.autoLearn end
       if type(c.autoBackpack)=="boolean" then K.config.autoBackpack=c.autoBackpack end
       if type(c.bankEnabled)=="boolean" then K.config.bankEnabled=c.bankEnabled end
-      if type(c.bankSeconds)=="number" and c.bankSeconds>=60 and c.bankSeconds<=86400 then K.config.bankSeconds=c.bankSeconds end
+      if type(c.bankSeconds)=="number" and c.bankSeconds>=60 and c.bankSeconds<=86400 and
+          (c.bankPolicy==2 or c.bankSeconds~=1800) then K.config.bankSeconds=c.bankSeconds end
       if c.tempoSource=="walker" or c.tempoSource=="courier" then K.config.tempoSource=c.tempoSource
       elseif tonumber(c.delay) and tonumber(c.delay)~=0.35 then K.config.tempoSource="courier" end
     end

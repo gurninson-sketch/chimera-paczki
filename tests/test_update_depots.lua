@@ -134,7 +134,7 @@ local function board(b,rows)
 end
 local function test(name,body) body();cases=cases+1;print("PASS "..name) end
 
-test("confirmed delivery and reward at Ebino wait for coin stow then choose a dispatch office without reading its board",function()
+test("confirmed delivery and reward at Ebino wait for coin stow then return to the issuing office without reading its board",function()
   local b,e=fresh();b:readBoard()
   board(b,{"1. Poczta w Ebino miedzymiastowa 2.00 kg 1 zlota moneta [x1]"})
   e:untilTrue(function() return e:count("wybierz paczke 1")==1 end)
@@ -149,12 +149,12 @@ test("confirmed delivery and reward at Ebino wait for coin stow then choose a di
   eq(b.job.coinsPending,true);eq(e.nextCalls,0);eq(#e.navs,1)
   eq(e:count("przeczytaj tablice",EBINO),0);eq(e:count("wybierz paczke 1",EBINO),0)
   e.pendingCoins.done({ok=true,moved=true})
-  eq(b.job,nil);eq(b.source.id,EBINO);eq(b.phase,"relocating");eq(e.nextCalls,1)
-  eq(#e.navs,2);eq(e.navs[2].returning,true);eq(e.navs[2].route.id,NULN)
+  eq(b.job,nil);eq(b.source.id,EBINO);eq(b.phase,"relocating");eq(e.nextCalls,0)
+  eq(#e.navs,2);eq(e.navs[2].returning,true);eq(e.navs[2].route.id,KZ)
   eq(e:count("przeczytaj tablice",EBINO),0);eq(e:count("wybierz paczke 1",EBINO),0)
   eq(b.stats.delivered,1);eq(b.stats.gold,1);eq(e.marks,0,"known Ebino needs no failed board request")
-  e:arrive();eq(b.source.id,NULN);eq(b.phase,"board")
-  eq(e:count("przeczytaj tablice",NULN),1);eq(e:count("przeczytaj tablice",KZ),1)
+  e:arrive();eq(b.source.id,KZ);eq(b.phase,"board")
+  eq(e:count("przeczytaj tablice",NULN),0);eq(e:count("przeczytaj tablice",KZ),2)
 end)
 
 test("manual poczta tutaj rejects the delivery-only Ebino counter before adopting or moving",function()

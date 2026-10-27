@@ -1,4 +1,4 @@
-PACZKI 1.5.17 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
+PACZKI 1.5.18 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
 Zgodność: 5.0.0-beta.13 i 5.0.1; 27 października 2026
 
 WYBÓR PACZEK OD 1.5.14
@@ -10,18 +10,33 @@ zarobek/zaplata/lekkie poniżej są historią i nie zmieniają tej reguły.
 Aktualizacja z GitHuba: /bot stop, /paczki aktualizuj. Po zakończeniu:
 /paczki diagnostyka i /paczki wznow. Nie resetuj bazy.
 
-BANK W NULN OD 1.5.17
+BANK W NULN — ZASADY OD 1.5.18
 
-Domyślnie co 30 minut, po rozliczeniu paczki, bot odwiedza bank Nuln:
+Domyślnie odstęp wynosi 120 minut. Bank tylko przy okazji pobytu
+na poczcie w Nuln, po rozliczeniu paczki. W innych miastach bot
+kontynuuje dostawy; zaległa wizyta czeka na postój w Nuln.
+Bot nie zmienia miasta ani trasy dla denominacji:
 potwierdzone wyjęcie monet -> zdenominuj -> własne potwierdzenie wymiany
 -> potwierdzone schowanie -> powrót na pocztę Nuln i dalsze dostawy.
-/paczki bank 30 ustawia minuty (1-1440), bank teraz zleca wizytę,
+/paczki bank 120 ustawia minuty (1-1440), bank teraz zleca wizytę
+przy najbliższym postoju na poczcie Nuln,
 bank status pokazuje termin, bank off/on steruje wizytami okresowymi.
 Termin i etap są zapisywane osobno dla postaci. Przerwanej wymiany bot
 nie ponawia. Po ręcznej wymianie i schowaniu monet: /paczki bank rozliczone,
 potem /paczki wznow. Wymagana mapa banku/poczty i pojemnik monet.
 Ebino służy doręczeniom, bez nadawania paczek; po dostawie bot wybiera
 inną pocztę. Potwierdzony brak tablicy jest zapamiętywany między sesjami.
+
+ZMIANA NUMERACJI I EBINO OD 1.5.18
+
+Jeśli inny kurier zmieni numerację i gra wyda paczkę dla innego adresata,
+bot nie jedzie do niego: zwraca przesyłkę w potwierdzonym urzędzie nadania,
+czeka na własny ACK i ponownie czyta tablicę. Bez blokady adresata.
+Zwrot pozostaje zapisany po STOP/przeładowaniu, bez rozwiązywania celu.
+Po doręczeniu w Ebino bot nie próbuje nadawać. Sprawdza bezpieczny powrót
+do poprzedniej nadającej poczty; przy braku tej drogi szuka innej placówki.
+Athel Loren nie jest bankiem ogólnodostępnym: wejście tylko dla leśnych elfów.
+Automatyczne wizyty bankowe w tej wersji nadal dotyczą wyłącznie Nuln.
 
 INSTALACJA I AKTUALIZACJA
 

@@ -62,11 +62,11 @@ local function sanitize(state)
     local out={}
     if state.bank~=nil then
         local bank=state.bank
-        if type(bank)~="table" or not finite(bank.nextAt) or not optional_bool(bank.requested) or
+        if type(bank)~="table" or not finite(bank.nextAt) or not optional_bool(bank.requested) or (bank.policy~=nil and bank.policy~=2) or
             (bank.stage~=nil and not ({travel=true,exchange=true,["return"]=true})[bank.stage]) then
             return nil,"nieprawidlowy zapis wizyty w banku"
         end
-        out.bank={nextAt=bank.nextAt,requested=bank.requested==true,stage=bank.stage}
+        out.bank={nextAt=bank.nextAt,requested=bank.requested==true,stage=bank.stage,policy=bank.policy}
     end
     for _,field in ipairs({"source","pendingManualSource"}) do
         if state[field]~=nil then
@@ -83,6 +83,10 @@ local function sanitize(state)
         out.job={name=text(job.name),recipientConfirmed=job.recipientConfirmed==true,
             delivered=job.delivered==true,coinsPending=job.coinsPending==true,
             returningUndelivered=job.returningUndelivered==true}
+        if job.returnReason~=nil then
+            if job.returnReason~="pickupChanged" and job.returnReason~="unknownRecipient" then return nil,"nieprawidlowa przyczyna zwrotu" end
+            out.job.returnReason=job.returnReason
+        end
         if job.searchElapsed~=nil then
             if not finite(job.searchElapsed) then return nil,"nieprawidlowy czas szukania adresata" end
             out.job.searchElapsed=job.searchElapsed

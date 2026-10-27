@@ -1,5 +1,16 @@
 # Zmiany
 
+## 1.5.18
+
+- Zmiana numeracji podczas odbioru: paczka dla innego adresata zostaje zwrócona bez wyznaczania jego trasy, także jeśli adres jest znany. Własne potwierdzenie zwrotu odświeża tablicę; brak blokady adresata po takim zwrocie.
+- Zapis i wznowienie zwrotu niezamówionej lub nierozpoznanej paczki bez rozwiązywania trasy do jej adresata.
+- Po doręczeniu w Ebino: bez prób nadawania, sprawdzenie bezpiecznego powrotu do ostatniej poczty nadającej przesyłki; dopiero przy braku tej drogi szukanie innej placówki.
+
+- Bank wyłącznie przy okazji pobytu na poczcie Nuln, po rozliczeniu paczki; brak zmiany miasta lub trasy z powodu terminu.
+- Domyślny odstęp 120 minut; zaległy termin i `bank teraz` czekają na postój na poczcie Nuln.
+- Migracja dawnego domyślnego odstępu 30 minut i jednorazowe wyznaczenie terminu; inne ustawione odstępy zachowane.
+- Zapisana wizyta może wznowić ruch tylko w korytarzu poczta–bank Nuln; dawny dojazd z innego miasta zostaje odłożony.
+
 ## 1.5.17
 
 - Okresowa denominacja w banku Nuln, domyślnie co 30 minut; `/paczki bank <minuty>`, `teraz`, `status`, `on/off`.

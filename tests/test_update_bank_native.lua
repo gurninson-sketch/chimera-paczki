@@ -1,7 +1,9 @@
 -- Nuln bank visits through the real native loader, Boty, mapper, GMCP and
 -- bag groups. No live character or profile is used. The office -> street
 -- -> bank links are the public Nuln route nw,nw (return se,se); the small
--- swordsmith fixture is shared with test_fryderik_native.lua.
+-- swordsmith fixture is shared with test_fryderik_native.lua. The isolated
+-- Bissingen post office uses its public room hash, without inventing a route
+-- connecting the two cities.
 -- Run from chimera-main or chimera-501:
 --   texlua ../chimera-paczki-github/tests/test_update_bank_native.lua
 package.path="tests/?.lua;"..package.path
@@ -11,12 +13,12 @@ local SOURCE=assert(debug.getinfo(1,"S").source:sub(2):match("^(.*)/tests/[^/]+$
 local AREA="0f095c768720281b"
 local ACTOR="Testbank"
 local IDS={"6f2c03461c2f1438","265a3d02827b17ca","5ab986b649487e08","d6b592db212d39b3",
-    "87dcd1a37f7480b0","1541e76cdf150002","b2d3beef1dc1760d","1b91bfe5e44cd714"}
+    "87dcd1a37f7480b0","1541e76cdf150002","b2d3beef1dc1760d","1b91bfe5e44cd714","200aff4d957642cd"}
 local NAMES={"Poczta","Ulica","Ulica Polnocna","Sklep miecznika","Ulica Polnocna","Ulica Polnocna",
-    "Ulica","Centralny Bank Imperialny - Filia w Nuln"}
+    "Ulica","Centralny Bank Imperialny - Filia w Nuln","Poczta"}
 local LINKS={
     [1]={nw=2},[2]={se=1,s=6,e=3,nw=8},[3]={w=2,s=5,sw=6},[4]={e=5},
-    [5]={n=3,w=4,s=6,e=7},[6]={n=5,ne=3,e=7},[7]={n=3,nw=2,w=5},[8]={se=2},
+    [5]={n=3,w=4,s=6,e=7},[6]={n=5,ne=3,e=7},[7]={n=3,nw=2,w=5},[8]={se=2},[9]={},
 }
 local LONG={n="polnoc",s="poludnie",e="wschod",w="zachod",ne="polnocny-wschod",sw="poludniowy-zachod",
     se="poludniowy-wschod",nw="polnocny-zachod"}
@@ -32,8 +34,9 @@ local COIN_STOW_ACK="Wkladasz trzy zlote monety i siedem srebrnych monet do otwa
 local WORLD={}
 for index,id in ipairs(IDS) do
     local exits={};for command,to in pairs(LINKS[index]) do exits[LONG[command]]=IDS[to] end
-    WORLD[id]={id=id,name=NAMES[index],area="Nuln",area_id=AREA,
-        indoors=index==1 or index==4 or index==8,terrain=index~=1 and index~=4 and index~=8 and "miasto" or nil,exits=exits}
+    WORLD[id]={id=id,name=NAMES[index],area=index==9 and "Bissingen" or "Nuln",area_id=index==9 and "test-bissingen" or AREA,
+        indoors=index==1 or index==4 or index==8 or index==9,
+        terrain=index~=1 and index~=4 and index~=8 and index~=9 and "miasto" or nil,exits=exits}
 end
 T.module("test.world.update_bank",function()
     return {name="world",setup=function()
@@ -51,8 +54,9 @@ local function prepare()
         M.write_file("chimera_wtyczki/chimera_paczki/"..name,read(SOURCE.."/chimera_wtyczki/chimera_paczki/"..name))
     end
     local area=M.empty_map("Dowolna nazwa obszaru profilu")
+    local otherArea=M.add_area("Bissingen")
     for index,id in ipairs(IDS) do
-        addRoom(index);setRoomIDbyHash(index,id);setRoomName(index,NAMES[index]);setRoomArea(index,area)
+        addRoom(index);setRoomIDbyHash(index,id);setRoomName(index,NAMES[index]);setRoomArea(index,index==9 and otherArea or area)
         setRoomCoordinates(index,index,0,0);setRoomWeight(index,1)
     end
     for from,links in pairs(LINKS) do for command,to in pairs(links) do setExit(from,to,command) end end
@@ -79,13 +83,14 @@ end
 local function info(index,wrongBankHash)
     local room=WORLD[IDS[index]]
     return {id=index==8 and wrongBankHash and "0000000000000008" or room.id,name=room.name,
-        area=room.area,area_id=AREA,indoors=room.indoors and 1 or 0,exits=room.exits}
+        area=room.area,area_id=room.area_id,indoors=room.indoors and 1 or 0,exits=room.exits}
 end
 local function count(command)
     local n=0;for _,sent in ipairs(M.sent) do if sent==command then n=n+1 end end;return n
 end
-local function waitFor(predicate,limit,why)
-    for _=1,math.ceil((limit or 60)/0.05) do if predicate() then return end;M.advance(0.05) end
+local function waitFor(predicate,limit,why,step)
+    step=step or 0.05
+    for _=1,math.ceil((limit or 60)/step) do if predicate() then return end;M.advance(step) end
     T.ok(predicate(),(why or "condition timed out").."\n"..M.text())
 end
 local function quiet(seconds,message)
@@ -99,7 +104,7 @@ local function start(options)
     local record=app.loader.records.kurier_paczki
     T.ok(record and record.status=="running",M.text())
     local C,api=record.api.engine,record.api
-    local s={current=1,moves={},commands={},pending=0,bagOpen=false,parcel=nil,pickups=0,boards=0,
+    local s={current=options.startRoom or 1,moves={},commands={},pending=0,bagOpen=false,parcel=nil,pickups=0,boards=0,boardRooms={},
         delivered=false,rewardStows=0,denominations=0,bankStows=0,bankStowAcknowledged=false,coinLocation="bag"}
     function s:entities()
         local rows={}
@@ -130,8 +135,9 @@ local function start(options)
             if s.current==1 then M.line("Jest tutaj jedno widoczne wyjscie: polnocny-zachod.") end
         end)
         elseif command=="przeczytaj tablice" then
-            T.eq(1,s.current,"read parcel board only after returning to Nuln office")
+            T.ok(s.current==1 or s.current==9,"read parcel board only at an actual office")
             s.boards=s.boards+1
+            s.boardRooms[#s.boardRooms+1]=s.current
             if s.denominations>0 then T.eq(true,s.bankStowAcknowledged,"board read before bank settlement") end
             tempTimer(0.05,function()
                 M.line("Przesylki dostepne dla Kuriera Imperialnej Sluzby Pocztowej:")
@@ -188,7 +194,7 @@ local function start(options)
     end
     C.config.autoBackpack=false;C.config.roam=false;C:save()
     M.packet("Char.Info",{name=ACTOR,id="native-bank-test-character"})
-    M.packet("Char.Vitals",{hp=100,mana=100,fatigue=10});M.packet("Room.Info",info(1));s:entities()
+    M.packet("Char.Vitals",{hp=100,mana=100,fatigue=10});M.packet("Room.Info",info(s.current));s:entities()
     M.input("/pojemniki inne plecak");M.input("/pojemniki monety plecak")
     T.eq(true,app.loader.records.bags.api.configured("inne"));T.eq(true,app.loader.records.bags.api.configured("monety"))
     return app,app.loader.records.bots.api,C,api,s
@@ -221,12 +227,63 @@ T.test("bank teraz during a held parcel settles delivery and reward before one n
 end)
 T.test("queued idle visit reaches exact bank hash and returns to the exact Nuln office before reading offers",function()
     local app,bots,C,api,s=start()
-    T.eq(1800,C.config.bankSeconds);T.eq(true,C.config.bankEnabled)
+    T.eq(7200,C.config.bankSeconds);T.eq(true,C.config.bankEnabled)
     forceStart();waitFor(function() return finished(s) end,30,"forced bank visit")
     T.eq("nw,nw,se,se",bankMoves(s));T.eq(1,s.denominations);T.eq(1,s.bankStows)
     T.eq(1,count(TAKE_COINS));T.eq(1,count(COINS));T.eq(0,s.pickups)
     T.eq(IDS[1],app.loader.records.mapper.api.chimera_id(app.loader.records.mapper.api.current_room()))
     T.eq(false,s.bagOpen);T.eq(0,#app.errors,M.text());M.input("/bot stop")
+end)
+T.test("overdue automatic visit at Bissingen keeps its normal board workflow without travelling to Nuln",function()
+    local app,bots,C,api,s=start({startRoom=9})
+    C.bank={nextAt=0,requested=false};C:checkpoint();M.input("/paczki start")
+    waitFor(function() return C.phase=="waiting" end,20,"ordinary Bissingen board after overdue deadline")
+    T.eq(9,s.current);T.eq(9,s.boardRooms[1]);T.eq(1,s.boards);T.eq(0,#s.moves)
+    T.eq(0,s.denominations);T.eq(0,count(TAKE_COINS));T.eq(nil,C.bank.stage)
+    T.eq(0,C.bank.nextAt,"an incidental visit must keep its overdue deadline until a Nuln opportunity")
+    T.eq("running",C.mode);T.ok(bots.status());T.eq(0,#app.errors,M.text());M.input("/bot stop")
+end)
+T.test("queued bank teraz at Bissingen waits for a future Nuln opportunity and does not alter the route",function()
+    local app,bots,C,api,s=start({startRoom=9})
+    forceStart();waitFor(function() return C.phase=="waiting" end,20,"ordinary Bissingen board with queued bank request")
+    T.eq(true,C.bank.requested);T.eq(nil,C.bank.stage);T.eq(9,s.current);T.eq(1,s.boards)
+    T.eq(9,s.boardRooms[1]);T.eq(0,#s.moves);T.eq(0,s.denominations);T.eq(0,count(TAKE_COINS))
+    T.eq("running",C.mode);T.ok(bots.status());T.eq(0,#app.errors,M.text());M.input("/bot stop")
+end)
+T.test("bank teraz during actual Bissingen ranking preserves the active planner and finishes its existing work",function()
+    local app,bots,C,api,s=start({startRoom=9})
+    M.input("/paczki start")
+    waitFor(function() return C.phase=="ranking" and C.planningToken~=nil end,20,"Bissingen cooperative ranking",0.0001)
+    local token=C.planningToken
+    local before=api.planner.status()
+    M.input("/paczki bank teraz")
+    T.eq(token,C.planningToken,"a remote bank request must not replace the active ranking")
+    T.eq(before.cancelled,api.planner.status().cancelled,"a remote bank request must not cancel planning")
+    waitFor(function() return C.phase=="waiting" end,20,"original Bissingen ranking completes")
+    T.ok(api.planner.status().completed>before.completed);T.eq(nil,C.bank.stage);T.eq(true,C.bank.requested)
+    T.eq(9,s.current);T.eq(1,s.boards);T.eq(0,#s.moves);T.eq(0,s.denominations)
+    T.eq("running",C.mode);T.ok(bots.status());T.eq(0,#app.errors,M.text());M.input("/bot stop")
+end)
+T.test("a remembered Nuln source cannot start a new bank visit while the confirmed current room is the street",function()
+    local app,bots,C,api,s=start({startRoom=2})
+    -- A stale remembered office is insufficient: the current GMCP/map pair
+    -- must also be the Nuln post before an incidental visit can start.
+    C.source={id=IDS[1],map=1,name="Poczta",city="Nuln",staticNuln=true};C.staticSource=true
+    C.mode="running";C.phase="waiting"
+    local before=#M.sent;M.input("/paczki bank teraz");M.advance(1)
+    T.eq(before,#M.sent);T.eq(nil,C.bank.stage);T.eq(true,C.bank.requested)
+    T.eq(2,s.current);T.eq(0,#s.moves);T.eq(0,s.denominations);T.eq(0,count(TAKE_COINS))
+    T.eq("running",C.mode);T.eq(0,#app.errors,M.text());M.input("/paczki stop")
+end)
+T.test("STOP after leaving Nuln post resumes the existing bank visit from its confirmed corridor street",function()
+    local app,bots,C,api,s=start()
+    forceStart();waitFor(function() return s.current==2 end,20,"first bank-travel step reaches Nuln street")
+    T.eq("travel",C.bank.stage);T.eq(1,#s.moves);T.eq(0,s.denominations)
+    M.input("/bot stop");local before=#M.sent;M.advance(1)
+    T.eq(before,#M.sent);T.eq(2,s.current);T.eq("travel",C.bank.stage);T.eq(nil,bots.status())
+    M.input("/paczki wznow");waitFor(function() return finished(s) end,30,"resume existing bank visit within the corridor")
+    T.eq("nw,nw,se,se",bankMoves(s));T.eq(1,s.denominations);T.eq(1,s.bankStows)
+    T.eq(nil,C.bank.stage);T.eq(1,s.current);T.eq(0,#app.errors,M.text());M.input("/bot stop")
 end)
 T.test("Gror's withdrawal, denomination and storage replies cannot advance our bank operation",function()
     local app,bots,C,api,s=start({holdTake=true,holdDenom=true,holdStow=true})

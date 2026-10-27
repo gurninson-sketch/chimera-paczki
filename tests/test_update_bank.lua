@@ -8,12 +8,14 @@ local cases,checks=0,0
 local function ok(v,m) checks=checks+1;assert(v,m or "check failed") end
 local function eq(a,b,m) ok(a==b,(m or "different")..": expected "..tostring(b)..", got "..tostring(a)) end
 local function clone(v) if type(v)~="table" then return v end;local out={};for k,x in pairs(v) do out[k]=clone(x) end;return out end
-local HOME={id="315106e45b840273",map=101,name="Poczta miasta Kreutzhofen",city="Kreutzhofen",staticNuln=false}
-local BANK={id="a000000000000500",map=500,name="Bank w Nuln",city="Nuln",staticNuln=false}
 local POST={id="6f2c03461c2f1438",map=501,name="Poczta",city="Nuln",staticNuln=false}
+local HOME=clone(POST)
+local BANK={id="1b91bfe5e44cd714",map=500,name="Bank w Nuln",city="Nuln",staticNuln=false}
+local STREET={id="265a3d02827b17ca",map=502,name="Ulica w Nuln",city="Nuln",staticNuln=false}
+local OTHER={id="315106e45b840273",map=101,name="Poczta miasta Kreutzhofen",city="Kreutzhofen",staticNuln=false}
 local function fresh(options)
  options=options or {}
- local e={time=options.time or 100,seq=0,timers={},sends={},logs={},navs={},exchanges={},inv={},current=clone(options.current or HOME),
+ local e={time=options.time or 100,seq=0,timers={},sends={},logs={},navs={},exchanges={},inv={},current=clone(options.current or HOME),source=clone(options.source or HOME),
   pending=false,coinsUncertain=false,settings=clone(options.settings),persist=clone(options.persist),missingBank=false}
  local cp=checkpointFactory(e.persist,{now=function() return e.time end,save=function(s) e.persist=clone(s);return true end})
  e.checkpoint=cp
@@ -22,16 +24,17 @@ local function fresh(options)
   schedule=function(seconds,fn) e.seq=e.seq+1;e.timers[e.seq]={at=e.time+seconds,fn=fn};return e.seq end,
   cancel=function(id) e.timers[id]=nil end,save=function(s) e.settings=clone(s) end,
   saveRun=function(actor,s) return cp.put(actor,s) end,loadRun=cp.get,forgetRun=cp.forget,
-  position=function() return clone(e.current) end,source=function() return clone(HOME) end,
-  currentOffice=function() if e.current.id==HOME.id then return clone(HOME) elseif e.current.id==POST.id then return clone(POST) end end,
-  restorePlace=function(place) for _,known in ipairs({HOME,BANK,POST}) do if place.id==known.id then return clone(known) end end end,
+  sessionReady=function() return true end,
+  position=function() return clone(e.current) end,source=function() return clone(e.source) end,
+  currentOffice=function() for _,known in ipairs({POST,OTHER}) do if e.current.id==known.id and e.current.map==known.map then return clone(known) end end end,
+  restorePlace=function(place) for _,known in ipairs({POST,BANK,STREET,OTHER}) do if place.id==known.id then return clone(known) end end end,
   inventoryState=function() return {state="hands",coinsUncertain=e.coinsUncertain} end,
   travelPending=function() return e.pending end,
   navigate=function(route,returning,done)
    local op={route=clone(route),returning=returning,done=done};e.navs[#e.navs+1]=op
    return function() op.cancelled=true;done(false,"przerwane") end
   end,
-  bankPlace=function(kind) if e.missingBank then return nil,"bank missing from current profile map" end;return clone(kind=="bank" and BANK or POST) end,
+  bankPlace=function(kind) if e.missingBank and kind=="bank" then return nil,"bank missing from current profile map" end;return clone(kind=="bank" and BANK or kind=="street" and STREET or POST) end,
   bankExchange=function(done)
    local op={done=done};e.exchanges[#e.exchanges+1]=op
    return function() op.cancelled=true;done({ok=false,reason="cancelled bank exchange"}) end
@@ -40,10 +43,10 @@ local function fresh(options)
  }
  local b=create(data,api,e.settings)
  b:identifyActor(options.actor or "groro",true)
- b.source=b.source or clone(HOME);b.staticSource=false;b.config.roam=false
+ b.source=b.source or clone(e.source);b.staticSource=false;b.config.roam=false
  b.mode=options.mode or (options.persist and b.mode or "running")
  -- Tests deliberately control the saved deadline, not any running timer.
- b.bank=b.bank or {nextAt=e.time+1800}
+ b.bank=b.bank or {nextAt=e.time+7200,policy=2}
  function e:advance(seconds)
   local finish=self.time+seconds
   for _=1,1000 do
@@ -77,14 +80,14 @@ local function completeVisit(b,e)
  e:arrive(e.navs[2]);e:advance(.5)
 end
 
-test("bank defaults are enabled at thirty minutes and no visit happens before deadline",function()
- local b,e=fresh();eq(b.config.bankSeconds,1800);eq(b.config.bankEnabled,true)
- b.bank.nextAt=e.time+1800;b:readBoard();eq(e:count("przeczytaj tablice"),1);eq(#e.navs,0);eq(#e.exchanges,0)
+test("bank defaults are enabled at two hours and no visit happens before deadline",function()
+ local b,e=fresh();eq(b.config.bankSeconds,7200);eq(b.config.bankEnabled,true)
+ b.bank.nextAt=e.time+7200;b:readBoard();eq(e:count("przeczytaj tablice"),1);eq(#e.navs,0);eq(#e.exchanges,0)
 end)
 test("an overdue bank visit precedes board reading and completes only after exchange ACK and postal return",function()
  local b,e=fresh();local before=e.time;completeVisit(b,e)
  eq(#e.exchanges,1);eq(b.bank.stage,nil);eq(b.bank.requested,false)
- ok(b.bank.nextAt>=before+1800 and b.bank.nextAt<=e.time+1800,"deadline renewed only by successful visit")
+ ok(b.bank.nextAt>=before+7200 and b.bank.nextAt<=e.time+7200,"deadline renewed only by successful visit")
  eq(e.current.id,POST.id);eq(b.source.id,POST.id);eq(e:count("przeczytaj tablice"),1)
  eq(b.stats.delivered,0);eq(b.stats.gold,0);eq(b.stats.silver,0);eq(b.stats.copper,0)
 end)
@@ -103,6 +106,88 @@ test("manual request replaces safe board wait and cancels stale planning before 
  b:later("refresh",1,function() error("stale refresh fired during bank visit") end)
  b:watch("obsolete board timeout");b:command("bank teraz");e:advance(2)
  eq(cancelled,1);eq(#e.navs,1);eq(e.navs[1].route.id,BANK.id);eq(e:count("przeczytaj tablice"),0)
+end)
+test("only the exact current Nuln postal room and matching source allow a new bank visit",function()
+ local b,e=fresh();ok(b:bankAtOffice())
+ for _,place in ipairs({OTHER,BANK,STREET,{id=POST.id,map=POST.map+1000},{id=OTHER.id,map=POST.map}}) do
+  e.current=clone(place);eq(b:bankAtOffice(),false,"current room must match both postal hash and map ID")
+ end
+ e.current=clone(POST)
+ for _,source in ipairs({OTHER,{id=POST.id,map=POST.map+1000},{id=OTHER.id,map=POST.map}}) do
+  b.source=clone(source);eq(b:bankAtOffice(),false,"source must independently match the Nuln post")
+ end
+ b.source=nil;eq(b:bankAtOffice(),false,"missing source cannot initiate a bank visit")
+ b.source=clone(POST);ok(b:bankAtOffice())
+end)
+test("a manual bank request at another post keeps planning and normal board selection running",function()
+ for _,phase in ipairs({"board","waiting","planning","ranking"}) do
+  local b,e=fresh({current=OTHER,source=OTHER});local cancelled,refreshed=0,0
+  b.phase=phase;b.planningToken={};b.cancelPlanning=function() cancelled=cancelled+1 end
+  local token=b.planningToken;local deadline=b.bank.nextAt;local source=b.source
+  b:later("refresh",.2,function() refreshed=refreshed+1 end)
+  b:command("bank teraz");e:advance(.3)
+  eq(b.bank.requested,true);eq(b.bank.nextAt,deadline);eq(b:bankDue(),false)
+  eq(b.phase,phase);eq(b.source,source);eq(b.planningToken,token);eq(cancelled,0);eq(refreshed,1)
+  eq(#e.navs,0);eq(#e.exchanges,0);eq(b.mode,"running")
+  b:readBoard();eq(e:count("przeczytaj tablice"),1)
+  b.resolveRoute=function(_,name) return {native=true,name=name,commands={},cost=2} end
+  b.boardRows={{number=7,name="Local Recipient",kind="miejscowa",kg=1,count=1,pay={gold=0,silver=1,copper=0}}}
+  b:choose();eq(e:count("wybierz paczke 7"),1);eq(b.source,source)
+  eq(b.bank.requested,true);eq(#e.navs,0)
+ end
+end)
+test("an overdue bank visit remains queued across foreign postal work and starts at a later Nuln stop",function()
+ local b,e=fresh({current=OTHER,source=OTHER});local deadline=e.time-1;b.bank.nextAt=deadline
+ b:readBoard();eq(e:count("przeczytaj tablice"),1);eq(#e.navs,0);eq(b.mode,"running")
+ eq(b.bank.nextAt,deadline);eq(b:bankDue(),false);eq(b.source.id,OTHER.id)
+ b:chooseRanked({},{});eq(b.phase,"waiting");eq(#e.navs,0);eq(b.bank.nextAt,deadline)
+ e.current=clone(POST);b:adoptOffice(clone(POST));ok(b:bankDue());b:readBoard()
+ eq(#e.navs,1);eq(e.navs[1].route.id,BANK.id);eq(e:count("przeczytaj tablice"),1)
+end)
+test("a queued manual request remains dormant outside Nuln until a later Nuln postal stop",function()
+ local b,e=fresh({current=OTHER,source=OTHER});b.phase="waiting";b:command("bank teraz")
+ eq(#e.navs,0);eq(b.bank.requested,true);eq(b:bankDue(),false)
+ e.current=clone(POST);b:adoptOffice(clone(POST));ok(b:bankDue());b:readBoard()
+ eq(#e.navs,1);eq(e.navs[1].route.id,BANK.id);eq(b.bank.requested,true)
+end)
+test("obsolete travel or return checkpoints outside the Nuln bank corridor continue ordinary courier work",function()
+ for _,stage in ipairs({"travel","return"}) do
+  local b,e=fresh({current=OTHER,source=OTHER,mode="stopped"})
+  b.bank={nextAt=e.time-1,requested=true,stage=stage,policy=2};b:checkpoint();b:begin(true)
+  eq(b.mode,"running");eq(b.bank.stage,nil);eq(b.bank.requested,true);eq(b.source.id,OTHER.id)
+  eq(#e.navs,1);eq(e.navs[1].route.id,OTHER.id,"normal courier return keeps its own issuing office")
+  e:arrive();eq(#e.exchanges,0);eq(e:count("przeczytaj tablice"),1)
+  local saved=e.checkpoint.get("groro");ok(saved);eq(saved.bank.stage,nil);eq(saved.bank.requested,true)
+ end
+end)
+test("direct bank visits cannot start a special trip from another city",function()
+ for _,stage in ipairs({"new","travel","return"}) do
+  local b,e=fresh({current=OTHER,source=OTHER})
+  b.bank={nextAt=e.time-1,requested=true,stage=stage~="new" and stage or nil,policy=2}
+  eq(b:bankVisit(),false);eq(b.bank.stage,nil);eq(b.bank.requested,true)
+  eq(#e.navs,0);eq(#e.exchanges,0);eq(b.mode,"running");eq(b.source.id,OTHER.id)
+ end
+end)
+test("legitimate bank travel and return resume only within the Nuln bank corridor",function()
+ for _,place in ipairs({POST,STREET,BANK}) do
+  for _,stage in ipairs({"travel","return"}) do
+   local b,e=fresh({current=place,mode="stopped"});b.bank={nextAt=e.time-1,requested=true,stage=stage,policy=2}
+   b:begin(true);eq(b.mode,"running");eq(#e.navs,1)
+   eq(e.navs[1].route.id,stage=="travel" and BANK.id or POST.id);eq(e.navs[1].returning,true)
+  end
+ end
+end)
+test("corridor hashes with a different map ID cannot resume a bank trip",function()
+ for _,place in ipairs({POST,STREET,BANK}) do
+  local b,e=fresh({current={id=place.id,map=place.map+1000},source=OTHER})
+  b.bank={nextAt=e.time-1,requested=true,stage="travel",policy=2}
+  eq(b:bankVisit(),false);eq(b.bank.stage,nil);eq(#e.navs,0);eq(#e.exchanges,0)
+ end
+end)
+test("an interrupted exchange outside Nuln still requires explicit manual reconciliation",function()
+ local b,e=fresh({current=OTHER,source=OTHER,mode="stopped"})
+ b.bank={nextAt=e.time-1,requested=true,stage="exchange",policy=2};b:begin(true)
+ eq(b.mode,"stopped");eq(b.bank.stage,"exchange");eq(#e.navs,0);eq(#e.exchanges,0)
 end)
 test("STOP during bank travel ignores stale arrival callback",function()
  local b,e=fresh();due(b,e);local op=e.navs[1];b:stop("user STOP");op.done(true);e:advance(1)
@@ -162,8 +247,37 @@ test("bank interval settings persist and reject values outside one to1440 minute
  for _,input in ipairs({"bank 0","bank -1","bank 1441","bank nope"}) do b:command(input);eq(b.config.bankSeconds,86400,input) end
  local restored=fresh({settings=e.settings});eq(restored.config.bankSeconds,86400)
 end)
+test("the old default interval upgrades once while custom and newly chosen thirty-minute intervals survive",function()
+ for _,input in ipairs({
+  {saved={bankSeconds=1800},expected=7200},
+  {saved={bankSeconds=600},expected=600},
+  {saved={bankSeconds=86400,bankEnabled=false},expected=86400},
+  {saved={bankSeconds=1800,bankPolicy=2},expected=1800},
+ }) do
+  local b,e=fresh({settings={config=input.saved}});eq(b.config.bankSeconds,input.expected);eq(b.config.bankPolicy,2)
+  if input.saved.bankEnabled==false then eq(b.config.bankEnabled,false) end
+  b:command("bank status");eq(e.settings.config.bankPolicy,2)
+  local restored=fresh({settings=e.settings});eq(restored.config.bankSeconds,input.expected)
+ end
+end)
+test("new deadline states always carry the current bank policy",function()
+ local b,e=fresh();b.bank=nil;b:bankDue();ok(b.bank);eq(b.bank.policy,2);eq(b.bank.nextAt,e.time+7200)
+ b.bank=nil;b.mode="stopped";b:command("bank teraz");eq(b.bank.policy,2);eq(b.bank.requested,true)
+end)
+test("legacy checkpoint deadlines migrate once without losing queued intent or an interrupted stage",function()
+ for _,stage in ipairs({"none","travel","exchange","return"}) do
+  local old={schema=1,actors={groro={source=clone(POST),bank={nextAt=101,requested=true,stage=stage~="none" and stage or nil}}}}
+  local b,e=fresh({persist=old,time=500,settings={config={bankSeconds=1800}}})
+  eq(b.bank.nextAt,7700);eq(b.bank.policy,2);eq(b.bank.requested,true)
+  eq(b.bank.stage,stage~="none" and stage or nil)
+  b:checkpoint();eq(e.checkpoint.get("groro").bank.policy,2)
+  local restored=fresh({persist=e.persist,time=600,settings={config={bankSeconds=7200,bankPolicy=2}}})
+  eq(restored.bank.nextAt,7700,"subsequent reload must not postpone the deadline again")
+  eq(restored.bank.policy,2);eq(restored.bank.requested,true);eq(restored.bank.stage,b.bank.stage)
+ end
+end)
 test("real checkpoint preserves bank intent by actor without persisting map IDs or executable data",function()
- local b,e=fresh();b.bank={nextAt=2000,requested=true,stage="return"};b:checkpoint()
+ local b,e=fresh();b.bank={nextAt=2000,requested=true,stage="return",policy=2};b:checkpoint()
  local saved=e.checkpoint.get("groro");ok(saved);eq(saved.bank.nextAt,2000);eq(saved.bank.requested,true);eq(saved.bank.stage,"return")
  local restored,r=fresh({persist=e.persist,current=BANK,time=500});eq(restored.bank.nextAt,2000);eq(restored.bank.stage,"return")
  restored:begin(true);r:untilTrue(function() return #r.navs==1 end);eq(r.navs[1].route.id,POST.id);eq(#r.exchanges,0)
@@ -178,7 +292,8 @@ test("switching actors never leaks a queued or interrupted bank visit into anoth
 end)
 test("real checkpoint rejects malformed bank deadline and unknown exchange stage",function()
  local cp=checkpointFactory()
- for _,bank in ipairs({{nextAt=-1},{nextAt=0/0},{nextAt=math.huge},{nextAt=100,stage="send all coins"},{nextAt=100,requested="yes"}}) do
+ for _,bank in ipairs({{nextAt=-1},{nextAt=0/0},{nextAt=math.huge},{nextAt=100,stage="send all coins"},{nextAt=100,requested="yes"},
+  {nextAt=100,policy=1},{nextAt=100,policy="2"},{nextAt=100,policy={}}}) do
   local good=cp.put("groro",{bank=bank});eq(good,false)
  end
 end)

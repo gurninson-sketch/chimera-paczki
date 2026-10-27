@@ -9,7 +9,7 @@ Pobierz [najnowsze wydanie](https://github.com/gurninson-sketch/chimera-paczki/r
 1. W Mudlecie wpisz `/bot stop` i poczekaj na zakończenie trwającej operacji ruchu lub plecaka.
 2. Zastąp cały folder `<profil>/chimera_wtyczki/chimera_paczki` folderem z ZIP-a (25 plików Lua).
 3. Wpisz `/przeladuj` i zaczekaj na zakończenie ładowania.
-4. Sprawdź `/paczki diagnostyka` — wersja 1.5.17. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
+4. Sprawdź `/paczki diagnostyka` — wersja 1.5.18. Rozpocznij `/bot paczki` albo kontynuuj zapisany kurs przez `/paczki wznow`.
 
 Dotychczasowe wersje do 1.5.12 wymagają tego jednorazowego skopiowania kodu, aby otrzymać aktualizator. Powtórz instalację osobno na każdym profilu.
 
@@ -40,24 +40,45 @@ W obrębie typu obowiązuje numer na tablicy. Cena, waga, odległość i ETA nie
 
 Po 5 minutach aktywnego szukania po mieście bot wraca do urzędu nadania, wyjmuje paczkę i wysyła `zwroc paczke`. Dopiero potwierdzenie gry pozwala wyczyścić kurs i wybrać kolejny. Pełny adresat w tej placówce jest pomijany przez 30 minut, również przy innej wadze lub nagrodzie oferty. Limit można zmienić przez `/paczki szukanie 5` (minuty 1–60). Zatrzymanie lub rozłączenie zachowuje zamiar zwrotu i wykorzystany czas szukania; nierozstrzygniętej operacji bot nie powtarza. Podczas patrolu pomija lokal jawnie zamknięty do rana.
 
-## Bank w Nuln (od 1.5.17)
+## Bank w Nuln (zasady od 1.5.18)
 
-Co 30 minut bot planuje denominację monet w banku Nuln. Najpierw kończy dostawę i rozlicza nagrodę; potem dociera do banku, wyjmuje monety, wysyła `zdenominuj` i chowa je ponownie. Każdy etap wymaga własnego potwierdzenia gry. Następnie wraca na pocztę w Nuln i kontynuuje dostawy. Odstęp liczy się od zakończonej wymiany; termin i etap wizyty są zapisywane osobno dla postaci. Przy pierwszym uruchomieniu termin wynosi 30 minut od startu.
+Domyślny odstęp wynosi 120 minut. Po jego upływie bot odwiedza bank **wyłącznie przy okazji pobytu na poczcie w Nuln**, po rozliczeniu paczki. W innych miastach kontynuuje dostawy i zachowuje zaległy termin do następnego postoju w Nuln. Nie zmienia trasy ani miasta z powodu denominacji. Z poczty idzie `nw,nw` do banku, wyjmuje monety, wysyła `zdenominuj`, chowa je i wraca `se,se`. Każdy etap wymaga własnego potwierdzenia gry.
+
+Odstęp liczy się od zakończonej wymiany; termin i etap są zapisywane osobno dla postaci. Przy aktualizacji z 1.5.17 dawne domyślne 30 minut zmienia się na 120 minut; zapisany termin jest jednorazowo wyznaczany od nowa. Inne ustawione odstępy pozostają zachowane. Ponowne ustawienie 30 minut w nowej wersji jest również zachowywane.
 
 | Komenda | Działanie |
 | --- | --- |
-| `/paczki bank 30` | Ustawia odstęp w minutach, od 1 do 1440, i włącza wizyty |
-| `/paczki bank teraz` | Zleca wizytę po rozliczeniu paczki; przy zatrzymanym bocie czeka na start |
+| `/paczki bank 120` | Ustawia odstęp w minutach, od 1 do 1440, i włącza wizyty |
+| `/paczki bank teraz` | Zleca wizytę przy najbliższym postoju na poczcie Nuln; poza Nuln nie zmienia kursu, przy zatrzymanym bocie czeka na start |
 | `/paczki bank status` | Pokazuje ustawienie, termin i etap wizyty |
 | `/paczki bank off` / `/paczki bank on` | Wyłącza / włącza okresowe wizyty |
 
 Przerwana wymiana nie jest powtarzana automatycznie. Jeśli bot zatrzymał się podczas operacji monet, dokończ denominację i schowaj monety ręcznie, potwierdź `/paczki bank rozliczone`, a potem użyj `/paczki wznow`. Wymagane są rozpoznane na mapie bank i poczta Nuln oraz pojemnik monet w `/pojemniki` lub automatycznie wykryty noszony plecak.
 
+## Zmiana numeracji tablicy
+
+Inny kurier może zabrać ostatnią paczkę po odczycie tablicy, zanim serwer wykona nasz wybór numeru. Bot porównuje rzeczywistego adresata z potwierdzenia odbioru z wybraną ofertą. Jeśli są inni, zwraca omyłkowo wydaną paczkę w potwierdzonym urzędzie nadania, bez wyznaczania nowej trasy. Własne potwierdzenie zwrotu pozwala ponownie odczytać tablicę. Taki zwrot nie blokuje adresata na 30 minut. Przerwanie i przeładowanie zachowuje zamiar zwrotu; brak odpowiedzi nie oznacza automatycznego powodzenia.
+
 ## Placówki bez nadań
 
-Ebino pozostaje adresem doręczeń, ale nie jest wybierane do nadawania. Po rozliczeniu przesyłki bot przechodzi do kolejnej dostępnej poczty. Odpowiedź `Nie masz zadnej poczty.` na własny odczyt tablicy zapamiętuje brak nadań również po ponownym uruchomieniu. Pusta tablica z ofertami ma osobny, tymczasowy okres pomijania. `/paczki poczty stop` pozostawia bota w danej placówce.
+Ebino pozostaje adresem doręczeń, ale nie jest wybierane do nadawania. Po rozliczeniu przesyłki bot najpierw sprawdza bezpieczną drogę w obie strony do poprzedniej poczty nadającej paczki i wraca tam. Dopiero jeśli tej możliwości nie ma, szuka innej placówki. Nie odczytuje tablicy ani nie wybiera nowej paczki w Ebino. Odpowiedź `Nie masz zadnej poczty.` na własny odczyt tablicy zapamiętuje brak nadań również po ponownym uruchomieniu. Pusta tablica z ofertami ma osobny, tymczasowy okres pomijania. `/paczki poczty stop` pozostawia bota w danej placówce.
 
 Przy braku odpowiednich ofert podsumowanie pojawia się przed szukaniem innej poczty. Bot wybiera pierwszą dostępną placówkę z bezpieczną drogą w obie strony, bez kosztownego przeliczania wszystkich urzędów.
+
+## Pozostałe banki na mapie
+
+Poniżej dojścia od miejscowej poczty według danych mapy Chimery. Samą obsługę `zdenominuj` potwierdzono w logach tylko w Nuln. Bot automatycznie korzysta obecnie wyłącznie z banku Nuln.
+
+| Miasto | Do banku od poczty | Powrót |
+| --- | --- | --- |
+| Bissingen | `n,w,nw,n,n,e` | `w,s,s,se,e,s` |
+| Quenelles | `e,n,nw,n` | `s,se,s,w` |
+| Varieno | `se,e,e,e,ne,ne,w` | `e,sw,sw,w,w,w,nw` |
+| Ebino, placówka kurierska | `ne,se,sw,s,w` | `e,n,ne,nw,sw` |
+| Karak Varn, czynna poczta | `e,nw,nw,w,n` | `s,e,se,se,w` |
+| Crimmor | `wyjscie,s,bank` | `wyjscie,n,poczta` |
+
+W Altdorfie mapa zawiera **Salę główną Banku Imperialnego**; nie potwierdzono punktu pocztowego, od którego można podać dojście. **Athel Loren jest dostępne wyłącznie dla leśnych elfów** i nie jest traktowane jako bank ogólnodostępny. Kantory są osobnymi lokacjami i nie oznaczają potwierdzonej możliwości denominacji.
 
 ## Zapisane dane
 
