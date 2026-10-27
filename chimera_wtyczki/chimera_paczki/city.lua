@@ -25,6 +25,15 @@ local function text(value)
 end
 
 local bundled
+-- Public hashes and ordinary links match the patrol observed on 2026-10-27.
+-- These three outdoor city rooms lack terrain in 5.0.1; the river crossing
+-- itself remains excluded. Never override an explicit terrain or other area.
+local PATROL_AREA = "b96cb35a938e6b50"
+local PATROL_ROOMS = {
+    ["4fa405b9e7ecef09"] = true, -- southern bridge approach
+    ["4679c95a3bd909d6"] = true, -- street to the garrison
+    ["5f8910ee564c903e"] = true, -- garrison courtyard
+}
 local function public_room(hash)
     if bundled==nil then
         local ok,value=pcall(require,"chimera_paczki.city_data")
@@ -77,6 +86,16 @@ return function(opts)
         local reverseOk, reverse=pcall(getRoomIDbyHash,hash)
         if not reverseOk or reverse~=map then return nil end
         local data,source=metadata(hash)
+        if PATROL_ROOMS[hash] then
+            if data==nil and source=="bundled" then
+                data={id=hash,area_id=PATROL_AREA,area="Kreutzhofen",terrain="miasto",indoors=false}
+                source="verified_patrol"
+            elseif type(data)=="table" and (data.id==nil or data.id==hash) and
+                data.area_id==PATROL_AREA and data.terrain==nil and data.indoors==false then
+                local copy={};for key,value in pairs(data) do copy[key]=value end
+                copy.terrain="miasto";data=copy;source="verified_patrol"
+            end
+        end
         if type(data)~="table" or (data.id~=nil and data.id~=hash) or
             not (data.terrain=="miasto" or (data.terrain==nil and data.indoors==true)) or
             not text(data.area_id) then return nil end

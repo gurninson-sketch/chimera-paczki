@@ -7,6 +7,12 @@ local PROBE_REFRESH = 0.3
 local SEARCH_LIMIT = 180 -- inactivity bound; valid movement extends long routes
 local PERIODIC_NAME = "annibale malacresta lettore"
 local PERIODIC_POLL = 10
+-- Three successful server-confirmed handovers in the 2026-10-27 log bind
+-- Bruno's parcel to this patrol, not to any guessed member/name/catalogue ID.
+local BRUNO_PATROL = {
+    "schludny orlonosy mezczyzna", "podekscytowany orlonosy mezczyzna",
+    "hardy czarnooki mezczyzna", "niebieskooki starszy mezczyzna",
+}
 local CLOSED_LOCAL_REASON = "lokal zamkniety do rana; krok nie zostal wykonany"
 local CITY_RETRY = 30
 local CITY_SEARCH_BUDGET = 300 -- total active city search; room activity never refreshes it
@@ -706,6 +712,23 @@ return function(ctx, bots, gmcp_api, walker, mapper, npcs, locations, sendProbe,
             searchAbsences[key] and searchAbsences[key][here.id] or -1)
         if (roomVersions[here.id] or -1)<=barrier then return false end
         if type(snapshot)~="table" or snapshot.room~=here.id then return false end
+        local scope=city_scope(route)
+        if norm(route.name)=="bruno rottel" and scope and scope.areaId=="b96cb35a938e6b50" and
+            mapper.chimera_id(here.map)==here.id and city.contains(scope,here.map) then
+            local counts={}
+            for _,entity in ipairs(snapshot.entities or {}) do
+                local name=norm(entity.name)
+                for _,short in ipairs(BRUNO_PATROL) do if name==short then
+                    if entity.kind~="npc" or entity.relation=="ally" then return false end
+                    counts[short]=(counts[short] or 0)+1
+                end end
+            end
+            local complete=true
+            for _,short in ipairs(BRUNO_PATROL) do if counts[short]~=1 then complete=false end end
+            -- This permits a game-verified attempt while the whole patrol is
+            -- freshly present. Only handover + payment can count a delivery.
+            if complete then return true end
+        end
         local wanted,knownName=norm(route.name),norm(route.npcName)
         for _,entity in ipairs(snapshot.entities or {}) do
             local name=norm(entity.name)

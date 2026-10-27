@@ -2,10 +2,14 @@
   "delivery_count_rule": "maximum_not_sum",
   "format": "chimera_paczki_address_report",
   "identity_conflicts": [],
-  "locations": 76,
-  "multiple_location_recipients": 1,
+  "locations": 78,
+  "multiple_location_recipients": 2,
   "recipients": 70,
   "sources": [
+    {
+      "file": "paczki_bruno_log_20261027.json",
+      "recipients": 1
+    },
     {
       "file": "paczki_groro.json",
       "recipients": 63

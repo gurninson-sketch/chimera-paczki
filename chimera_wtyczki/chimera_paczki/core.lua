@@ -1,6 +1,6 @@
--- Chimera Paczki 1.5.21. Transport, navigation and timers are injected.
+-- Chimera Paczki 1.5.22. Transport, navigation and timers are injected.
 return function(data, api, saved)
-  local K = {version = "1.5.21", mode = "stopped", phase = "idle", timers = {}, epoch = 0, sessionNonce=0,
+  local K = {version = "1.5.22", mode = "stopped", phase = "idle", timers = {}, epoch = 0, sessionNonce=0,
     ownSend = false, routes = {}, nodes = {}, titles = {}, rejected = {}, customRoutes = {}, unavailableRecipients = {},
     stats = {delivered = 0, gold = 0, silver = 0, copper = 0, started = nil},
     config = {delay = 0.35, tempoSource = "walker", timeout = 10, refresh = 30, maxKg = 3.2, strategy = "local_first", roam = true, autoLearn=true, autoBackpack=true, searchSeconds=300, recipientCooldown=1800,bankEnabled=true,bankSeconds=7200,bankPolicy=2}}

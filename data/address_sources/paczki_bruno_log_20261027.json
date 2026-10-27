@@ -1,0 +1,19 @@
+{
+  "format": "chimera_paczki_baza",
+  "version": 1,
+  "memory": {
+    "schema": 1,
+    "records": {
+      "bruno rottel": {
+        "recipient": "Bruno Rottel",
+        "postal": false,
+        "count": 3,
+        "last": 1793059200,
+        "roomHashes": [
+          "4fa405b9e7ecef09",
+          "5f8910ee564c903e"
+        ]
+      }
+    }
+  }
+}

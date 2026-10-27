@@ -86,6 +86,12 @@ Poniżej dojścia od miejscowej poczty według danych mapy Chimery. Samą obsłu
 
 W Altdorfie mapa zawiera **Salę główną Banku Imperialnego**; nie potwierdzono punktu pocztowego, od którego można podać dojście. **Athel Loren jest dostępne wyłącznie dla leśnych elfów** i nie jest traktowane jako bank ogólnodostępny. Kantory są osobnymi lokacjami i nie oznaczają potwierdzonej możliwości denominacji.
 
+## Bruno Rottel: patrol Kreutzhofen (od 1.5.22)
+
+Bruno nie musi odpowiadać na przedstawienie się. Trzy potwierdzone doręczenia z logu 27.10.2026 wiążą jego paczkę z patrolującą grupą: **schludny orlonosy mężczyzna, podekscytowany orlonosy mężczyzna, hardy czarnooki mężczyzna i niebieskooki starszy mężczyzna**. Świeża obecność całej grupy w potwierdzonym obszarze Kreutzhofen pozwala spróbować oddania. Sukces nadal wymaga potwierdzenia gry i wypłaty. Skrypt nie zgaduje, który członek patrolu to Bruno, i nie tworzy fikcyjnego wpisu `/npc`.
+
+Baza obejmuje doręczenia na dziedzińcu garnizonu i przy południowej stronie mostu; bot szuka wędrującego patrolu w mieście. Limit szukania, zwrot paczki i blokada ponownego wyboru przy dłuższej nieobecności pozostają aktywne. Trzy zweryfikowane pokoje po miejskiej stronie Soll uzupełniają brakujące metadane dojścia do garnizonu, bez rozszerzania obchodu na przeprawę przez rzekę i bez zmiany mapy profilu.
+
 ## Wspólna baza adresów (od 1.5.19)
 
 Publiczny katalog [data/addresses.json](data/addresses.json) scala trzy zaakceptowane eksporty: Groro, Yarrim i Morrid. Początkowo obejmuje **63 adresatów i 69 lokalizacji**, bez konfliktów tożsamości. Źródła znajdują się w [data/address_sources](data/address_sources), a podsumowanie w [data/address_report.json](data/address_report.json). Są to potwierdzone adresy gry; wpis w katalogu nie potwierdza aktualnej obecności wędrującego NPC.

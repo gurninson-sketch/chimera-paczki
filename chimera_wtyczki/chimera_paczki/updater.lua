@@ -90,7 +90,7 @@ function S.finish(state)
   return table.concat(result)
 end
 
-local U={version="1.5.21",sha256=S}
+local U={version="1.5.22",sha256=S}
 local REPO="https://github.com/gurninson-sketch/chimera-paczki"
 local MANIFEST=REPO.."/releases/latest/download/update.json"
 local FILES={"init.lua","core.lua","routes.lua","new_routes.lua","npc.lua","travel.lua","offices.lua","scope.lua",

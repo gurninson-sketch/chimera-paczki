@@ -962,3 +962,27 @@ Annibale przez aktualne GMCP i baze /npc przed oddaniem paczki.
 Zmiana obecnych NPC pozwala ponowic przedstawienie, najwyzej raz na 10 s.
 Sam opis, obcy NPC ani gracz nie uprawniaja do oddania. Bot pozostaje
 na molo; nie kupuje biletu i nie wsiada na statek. STOP anuluje oczekiwanie.
+
+BRUNO ROTTEL — NIEMY PATROL KREUTZHOFEN, 1.5.22
+
+Log z 27.10.2026 potwierdza trzy doreczenia przy patrolu z czterech opisow:
+  schludny orlonosy mezczyzna
+  podekscytowany orlonosy mezczyzna
+  hardy czarnooki mezczyzna
+  niebieskooki starszy mezczyzna
+Patrol nie odpowiada na przedstawienie sie. Skrypt nie przypisuje
+ktoregokolwiek opisu do zmyslonego imienia ani identyfikatora NPC.
+Swiezy kompletny patrol w Kreutzhofen uprawnia do proby oddania paczki
+Bruno; dopiero gra potwierdza doreczenie i wyplate. Niepelna grupa,
+gracz zamiast NPC lub niejednoznaczny opis nie wystarczaja.
+Po odejsciu patrolu bot kontynuuje poszukiwanie w miescie. Zachowany
+jest limit szukania i zwrot paczki przy dluzszej nieobecnosci.
+
+Do bazy dodano potwierdzone doreczenia na dziedzincu garnizonu
+(5f8910ee564c903e) i przy poludniowej stronie mostu (4fa405b9e7ecef09).
+To miejsca spotkan wedrujacego patrolu, nie stale stanowisko Bruno.
+Trzy dokladnie zweryfikowane miejskie pokoje, ktorym publiczna mapa
+nie podaje terenu, lacza dojscie do garnizonu. Przeprawa przez Soll
+pozostaje poza rozszerzeniem miejskiego obchodu. Mapa profilu nie
+jest modyfikowana, a aktualne blokady i jawny teren lesny/gorski
+nadal wykluczaja dany krok.

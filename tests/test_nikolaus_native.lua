@@ -1,6 +1,7 @@
 -- Nikolaus Schmidt in Kreutzhofen: verified workshop across the Soll.
 -- Ten public hashes and ordinary links reproduce office-to-workshop geometry.
--- Three outdoor bridge rooms lack terrain and remain outside urban patrols.
+-- The river crossing stays outside urban patrols; the southern city-side
+-- approach is confirmed by the anonymous Bruno patrol log.
 -- NPC title is observed in log13-07-08; descriptor is synthetic test data.
 -- Run from chimera-main or chimera-501.
 package.path="tests/?.lua;"..package.path
@@ -269,7 +270,8 @@ T.test("authoritative metadata excludes bridge from patrol but permits the verif
     local createCity=dofile("../chimera-native/chimera_wtyczki/chimera_paczki/city.lua")
     local city=createCity({mapper=app.loader.records.mapper.api,world={room=function(id) return WORLD[id] end}})
     local route=assert(nav.resolve(FULL,nav.current()));local scope=assert(city.scope(route))
-    for _,bridge in ipairs({4,5,6}) do T.eq(false,city.contains(scope,bridge)) end
+    T.eq(true,city.contains(scope,4),"verified southern city-side approach")
+    for _,bridge in ipairs({5,6}) do T.eq(false,city.contains(scope,bridge)) end
     T.eq(nil,city.plan(scope,1,10),"urban exploration must not admit the bridge")
     begin(s,C);finish(app,bots,C,s,api)
 end)

@@ -103,11 +103,13 @@
         "title": "Boreg Khrazaksson z Karak Izor"
       },
       "bruno rottel": {
-        "count": 1,
-        "last": 1792907874,
+        "count": 3,
+        "last": 1793059200,
         "postal": false,
-        "recipient": "bruno rottel",
+        "recipient": "Bruno Rottel",
         "roomHashes": [
+          "4fa405b9e7ecef09",
+          "5f8910ee564c903e",
           "38d3ec368fe10ff5"
         ]
       },
