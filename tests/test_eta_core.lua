@@ -1,4 +1,4 @@
--- Fixed local-first selection, optional ETA diagnostics and successful-cycle hooks.
+-- Fixed intercity-first selection, optional ETA diagnostics and successful-cycle hooks.
 -- Run from chimera-native: texlua tests/test_eta_core.lua
 package.path="chimera_wtyczki/?.lua;"..package.path
 local create=dofile("chimera_wtyczki/chimera_paczki/core.lua")
@@ -94,11 +94,11 @@ local function atRecipient(b,e,postal)
     eq(e:untilSend(),"oddaj paczke")
 end
 
-test("locals are selected before rich light fast intercity offers without resolving the intercity route",function()
+test("intercity offers are selected before locals without resolving the deferred local route",function()
     local b,e=fresh();e:route("Johan Kornwalz",1000,600);e:route("Poczta w Bissingen",1,1,true)
     local ranked=b:rank({offer(b,1,"Poczta w Bissingen","99 zlotych monet",0.1,1,"miedzymiastowa"),
         offer(b,8,"Johan Kornwalz","1 miedziana moneta",3)})
-    eq(#ranked,1);eq(ranked[1].number,8);eq(#e.resolved,1);eq(e.resolved[1],"johan kornwalz")
+    eq(#ranked,1);eq(ranked[1].number,1);eq(#e.resolved,1);eq(e.resolved[1],"poczta w bissingen")
     eq(#e.etaCalls,1)
 end)
 test("board number orders each type regardless of value mass path cost and ETA",function()
@@ -136,15 +136,15 @@ test("intercity delivery requires a postal route",function()
     local ranked=b:rank({offer(b,1,"Johan Kornwalz","99 zlotych monet",1,1,"miedzymiastowa")})
     eq(#ranked,0);eq(b.offerDiagnostics[1].category,"kind");eq(#e.etaCalls,0)
 end)
-test("all local copies are exhausted before departing and destination locals become first choice",function()
+test("intercity availability dominates local copies at every dispatch office",function()
     local b,e=fresh();e:route("Johan Kornwalz",20,60);e:route("Poczta w Bissingen",1,1,true)
     local localOffer=offer(b,8,"Johan Kornwalz","1 miedziana moneta",1,2)
     local intercity=offer(b,1,"Poczta w Bissingen","99 zlotych monet",1,1,"miedzymiastowa")
-    eq(b:rank({intercity,localOffer})[1].number,8)
-    localOffer.count=1;eq(b:rank({intercity,localOffer})[1].number,8)
+    eq(b:rank({intercity,localOffer})[1].number,1)
+    localOffer.count=1;eq(b:rank({intercity,localOffer})[1].number,1)
     localOffer.count=0;eq(b:rank({intercity,localOffer})[1].number,1)
     localOffer.count=1;b.source={id="new-office",map=303,name="Poczta w Bissingen"}
-    eq(b:rank({intercity,localOffer})[1].number,8)
+    eq(b:rank({intercity,localOffer})[1].number,1)
 end)
 test("missing zero negative nonfinite and malformed ETA cannot exclude a deliverable local",function()
     local invalid={false,0,-1,math.huge,0/0,"60",{}}
@@ -161,13 +161,13 @@ test("estimator failure does not block pickup or crash the courier",function()
     b:choose();eq(b.mode,"running");eq(b.phase,"pickup");eq(e.sends[1],"wybierz paczke 1")
     eq(b.offerDiagnostics[1].eligible,true)
 end)
-test("saved ranking modes migrate and legacy commands cannot override local-first",function()
+test("saved ranking modes migrate and legacy commands cannot override intercity-first",function()
     for _,mode in ipairs({"rate","pay","light","local_first"}) do
         local b,e,api=fresh()
         local migrated=create(data,api,{config={strategy=mode,maxKg=6.2,delay=1.5,roam=false}})
-        eq(migrated.config.strategy,"local_first");eq(migrated.config.maxKg,6.2);eq(migrated.config.delay,1.5)
+        eq(migrated.config.strategy,"intercity_first");eq(migrated.config.maxKg,6.2);eq(migrated.config.delay,1.5)
         for _,option in ipairs({"zarobek","zaplata","lekkie"}) do
-            migrated:command("tryb "..option);eq(migrated.config.strategy,"local_first")
+            migrated:command("tryb "..option);eq(migrated.config.strategy,"intercity_first")
         end
     end
 end)

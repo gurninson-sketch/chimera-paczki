@@ -169,7 +169,7 @@ T.test("local board order stays independent of map cost and informational profit
     T.ok(short.eta.seconds<long.eta.seconds);T.ok(short.score>long.score)
     T.eq(9*60/short.eta.seconds,short.score,"The profitability unit is silver per minute for one parcel")
     T.eq("estimate",short.eta.method);T.eq(0,short.eta.samples)
-    T.eq("local_first",C.config.strategy);T.eq(1,C.selected.number);T.eq(0,#app.errors,M.text())
+    T.eq("intercity_first",C.config.strategy);T.eq(1,C.selected.number);T.eq(0,#app.errors,M.text())
 end)
 
 T.test("availability counts do not multiply the single-parcel reward or profitability",function()
@@ -200,12 +200,12 @@ T.test("live tempo changes recompute informational ETA without changing board or
     T.eq(0,#app.errors,M.text())
 end)
 
-T.test("legacy pay and light commands preserve the fixed local-first policy",function()
+T.test("legacy pay and light commands preserve the fixed intercity-first policy",function()
     local app,bots,C=start()
     local lines={"1. Johan Kornwalz miejscowa 0.50 kg 9 srebrnych monet [x1]",
         "2. Olaff Meier Mlodszy miejscowa 2.00 kg 12 srebrnych monet [x1]"}
-    M.input("/paczki tryb zaplata");T.eq(1,rank(C,lines)[1].number);T.eq("local_first",C.config.strategy)
-    M.input("/paczki tryb lekkie");T.eq(1,rank(C,lines)[1].number);T.eq("local_first",C.config.strategy)
+    M.input("/paczki tryb zaplata");T.eq(1,rank(C,lines)[1].number);T.eq("intercity_first",C.config.strategy)
+    M.input("/paczki tryb lekkie");T.eq(1,rank(C,lines)[1].number);T.eq("intercity_first",C.config.strategy)
     T.ok(diagnostic(C,1).eta.seconds>0);T.eq(0,#app.errors,M.text())
 end)
 

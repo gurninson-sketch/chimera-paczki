@@ -126,7 +126,7 @@ test("numeric weight, Unicode, money and optional strategies",function()
   eq(m.gold,11); eq(m.silver,4); eq(m.copper,7)
   b:command("limit 0,8"); eq(b.config.maxKg,0.8); eq(e.saves,1)
   b:command("tempo 0.01"); eq(b.config.delay,0.35,"reject unsafe zero/short delay")
-  b:command("tryb lekkie"); eq(b.config.strategy,"local_first")
+  b:command("tryb lekkie"); eq(b.config.strategy,"intercity_first")
   local rows={b:parseOffer("1. Henry Schmidt miejscowa 2.30 kg 11 srebrnych monet [x6]"),b:parseOffer("2. Ludwig Golebiarz miejscowa 0.80 kg 6 srebrnych monet [x4]")}
   local ranked=b:rank(rows); eq(#ranked,1); eq(ranked[1].name,"ludwig golebiarz")
 end)

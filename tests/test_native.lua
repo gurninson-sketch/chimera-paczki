@@ -139,7 +139,7 @@ T.test("reload via actual loader removes the old courier and preserves native sa
     local ok=app.loader:reload({"kurier_paczki"});T.ok(ok~=false,M.text())
     local new=app.loader.records.kurier_paczki.api.engine
     T.eq(nil,bots.status());T.eq("stopped",C.mode);T.eq("stopped",new.mode)
-    T.eq(1.5,new.config.maxKg);T.eq("local_first",new.config.strategy);T.eq(false,new.config.roam)
+    T.eq(1.5,new.config.maxKg);T.eq("intercity_first",new.config.strategy);T.eq(false,new.config.roam)
     T.eq(aliases,M.count("aliases"));T.eq(triggers,M.count("triggers"));T.eq(0,#app.errors,M.text())
     M.clear_output();M.input("/bot");T.contains(M.text(),"[paczki]")
 end)

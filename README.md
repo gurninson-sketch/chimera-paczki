@@ -1,6 +1,16 @@
 # Chimera Paczki
 
-Autonomiczny kurier dla **głównych skryptów Chimery** w Mudlecie. Wybiera najpierw paczki miejscowe, a po ich wyczerpaniu międzymiastowe poczta → poczta, dostarcza je do NPC i urzędów, obsługuje bramy oraz przeprawy, uczy się potwierdzonych adresatów i zachowuje kurs po rozłączeniu.
+Autonomiczny kurier dla **głównych skryptów Chimery** w Mudlecie. Wybiera najpierw paczki międzymiastowe poczta → poczta, a następnie dostępne miejscowe, dostarcza je do NPC i urzędów, obsługuje bramy oraz przeprawy, uczy się potwierdzonych adresatów i zachowuje kurs po rozłączeniu.
+
+## Limity i kolejność wyboru od 1.5.23
+
+Priorytet mają **międzymiastowe poczta → poczta**, następnie miejscowe. W obrębie rodzaju nadal decyduje numer tablicy. Limit wagi profilu pozostaje warunkiem wyboru; nagroda i ETA są informacyjne. Międzykrainowe/międzydomenowe pozostają wyłączone z automatycznego wyboru.
+
+Zapis sieciowy Mudleta z 30.10.2026 potwierdza odmowę po **30 wydanych przesyłkach miejscowych postaciom całego konta w ostatniej godzinie** oraz komunikat „Kolejna bedzie za 2 minuty”. To ruchome 60 minut, a nie reset o pełnej godzinie. Skrypt prowadzi osobne lokalne liczniki odbiorów (maks. 30 na rodzaj), licząc własne potwierdzenia wydania. Zwrot nie cofa wydania. Sam limit 30 dla pozostałych rodzajów przyjęto zgodnie ze zgłoszeniem użytkownika; parser obsługuje odpowiadające im odmowy serwera.
+
+Komunikat gry zapisuje blokadę odpowiedniego rodzaju i podany czas oczekiwania, z marginesem 2 sekund. Dostępny inny rodzaj może być obsługiwany dalej. Przy braku dostępnych ofert kurier czeka na obecnej poczcie do terminu i dopiero wtedy odczytuje świeżą tablicę. Oczekiwanie nie powoduje pomylenia odmowy z niesioną paczką, odrzucenia numeru oferty ani uznania poczty za placówkę bez nadań. Rozpoznana ogólna blokada wyboru dotyczy wszystkich rodzajów.
+
+`/paczki limity` pokazuje lokalnie znane odbiory i czas blokady. Historia i terminy przetrwają STOP, przeładowanie, restart oraz reset kursu. Profile nie wymieniają liczników konta: każdy profil zna własne odbiory danej postaci, a zużycie przez pozostałe postacie/profile rozstrzyga autorytatywna odmowa gry. Zmiana profilu nie omija limitu konta. Brak odpowiedzi na wybór nadal wymaga sprawdzenia stanu; timeout nie jest uznawany za odmowę.
 
 ## Instalacja i aktualizacje
 

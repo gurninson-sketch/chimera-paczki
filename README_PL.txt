@@ -1,9 +1,9 @@
-PACZKI 1.5.20 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
-Zgodność: 5.0.0-beta.13 i 5.0.1; 27 października 2026
+PACZKI 1.5.23 — BOT DO GŁÓWNYCH SKRYPTÓW CHIMERY
+Zgodność: 5.0.0-beta.13 i 5.0.1; 30 października 2026
 
-WYBÓR PACZEK OD 1.5.14
+WYBÓR PACZEK OD 1.5.23
 
-Najpierw miejscowe, następnie międzymiastowe poczta -> poczta.
+Najpierw międzymiastowe poczta -> poczta, następnie dostępne miejscowe.
 Międzydomenowe/międzykrainowe wyłączone. W grupie numer tablicy;
 waga tylko jako limit, cena i ETA informacyjne. Starsze opisy trybów
 zarobek/zaplata/lekkie poniżej są historią i nie zmieniają tej reguły.
@@ -986,3 +986,25 @@ nie podaje terenu, lacza dojscie do garnizonu. Przeprawa przez Soll
 pozostaje poza rozszerzeniem miejskiego obchodu. Mapa profilu nie
 jest modyfikowana, a aktualne blokady i jawny teren lesny/gorski
 nadal wykluczaja dany krok.
+
+LIMITY WYDAWANIA PACZEK — 1.5.23, 30.10.2026
+
+Komunikat z gry potwierdza 30 wydan miejscowych na CALE KONTO w ostatniej
+godzinie i czas do kolejnego wydania. Liczy sie odbior, nie doreczenie;
+zwrot nie oddaje miejsca w limicie. Skrypt przechowuje ostatnie odbiory
+postaci z tego profilu i osobne terminy blokad rodzajow. Lokalne maksimum
+to 30/60 min na rodzaj; dla innych postaci/profili ostatecznie decyduje gra.
+
+Po odmowie limitowej nie zatrzymuje kursu z niepewnym odbiorem, nie
+odrzuca oferty i nie oznacza poczty jako pozbawionej nadan. Sprawdza inny
+dostepny rodzaj albo czeka w urzedzie do wskazanego terminu + 2 s.
+Dopiero wtedy odczytuje swieza tablice. Nie odpytuje jej co kilka sekund
+i nie zmienia urzedu tylko z powodu limitu konta. STOP anuluje timer,
+a przechowany termin jest sprawdzany po wznowieniu.
+
+/paczki limity pokazuje znane odbiory i czas oczekiwania. Reset kursu,
+restart i przeladowanie nie zeruja limitow. Nie trzeba zmieniac trybu:
+stare ustawienia automatycznie przechodza na priorytet miedzymiastowych.
+Limit wagi pozostaje zachowany. Miedzykrainowe sa nadal poza automatycznym
+wyborem. Brak odpowiedzi serwera pozostaje niepewnym odbiorem i wymaga
+sprawdzenia stanu; nie uruchamia automatycznego ponowienia w ciemno.

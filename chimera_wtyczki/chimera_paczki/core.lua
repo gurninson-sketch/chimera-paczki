@@ -1,9 +1,9 @@
--- Chimera Paczki 1.5.22. Transport, navigation and timers are injected.
+-- Chimera Paczki 1.5.23. Transport, navigation and timers are injected.
 return function(data, api, saved)
-  local K = {version = "1.5.22", mode = "stopped", phase = "idle", timers = {}, epoch = 0, sessionNonce=0,
-    ownSend = false, routes = {}, nodes = {}, titles = {}, rejected = {}, customRoutes = {}, unavailableRecipients = {},
+  local K = {version = "1.5.23", mode = "stopped", phase = "idle", timers = {}, epoch = 0, sessionNonce=0,
+    ownSend = false, routes = {}, nodes = {}, titles = {}, rejected = {}, customRoutes = {}, unavailableRecipients = {}, pickupLimits = {},
     stats = {delivered = 0, gold = 0, silver = 0, copper = 0, started = nil},
-    config = {delay = 0.35, tempoSource = "walker", timeout = 10, refresh = 30, maxKg = 3.2, strategy = "local_first", roam = true, autoLearn=true, autoBackpack=true, searchSeconds=300, recipientCooldown=1800,bankEnabled=true,bankSeconds=7200,bankPolicy=2}}
+    config = {delay = 0.35, tempoSource = "walker", timeout = 10, refresh = 30, maxKg = 3.2, strategy = "intercity_first", roam = true, autoLearn=true, autoBackpack=true, searchSeconds=300, recipientCooldown=1800,bankEnabled=true,bankSeconds=7200,bankPolicy=2}}
   local reverse = {n="s", s="n", e="w", w="e", ne="sw", nw="se", se="nw", sw="ne", u="d", d="u"}
   local directionNames = {polnoc="n", poludnie="s", wschod="e", zachod="w", gora="u", dol="d",
     ["polnocny-wschod"]="ne", ["polnocny-zachod"]="nw", ["poludniowy-wschod"]="se", ["poludniowy-zachod"]="sw"}
@@ -16,6 +16,120 @@ return function(data, api, saved)
     return (s:lower():gsub("%s+", " "):gsub("^%s+", ""):gsub("%s+$", ""))
   end
   K.norm = norm
+  local QUOTA_KINDS={miejscowa=true,miedzymiastowa=true,miedzykrainowa=true,miedzydomenowa=true}
+  local QUOTA_NAMES={miejscowych="miejscowa",miedzymiastowych="miedzymiastowa",
+    miedzykrainowych="miedzykrainowa",miedzydomenowych="miedzykrainowa"}
+  local function waitSeconds(text)
+    local seconds,found=0,false
+    for amount,unit in text:gmatch("(%d+)%s+(%a+)") do
+      local factor=unit:match("^sekund") and 1 or unit:match("^minut") and 60 or unit:match("^godzin") and 3600
+      if factor then seconds=seconds+tonumber(amount)*factor;found=true end
+    end
+    if not found then
+      if text=="minute" or text=="jedna minute" then seconds=60;found=true
+      elseif text=="sekunde" or text=="jedna sekunde" then seconds=1;found=true
+      elseif text=="godzine" or text=="jedna godzine" then seconds=3600;found=true end
+    end
+    if found and seconds>=1 and seconds<=86400 then return seconds end
+  end
+  function K:parsePickupWait(text)
+    local s=norm(text)
+    local limit,category,duration=s:match("^urzednik zaglada do rejestru i kreci glowa: w ciagu ostatniej godziny wydal juz postaciom twojego konta (%d+) przesylek (%a+)%. kolejna bedzie za (.-)%.$")
+    if limit and QUOTA_NAMES[category] then
+      local seconds=waitSeconds(duration)
+      return {kind=QUOTA_NAMES[category],limit=math.min(30,math.max(1,tonumber(limit))),seconds=seconds or 60,unknownTime=not seconds}
+    end
+    -- Other parcel cooldown wording is accepted only as a direct response
+    -- to our pickup request, never from a player/NPC speech prefix.
+    local rest=s:match("^musisz jeszcze poczekac (.+)$") or s:match("^musisz odczekac (.+)$")
+    if rest and (rest:find("pacz",1,true) or rest:find("przesyl",1,true)) then
+      local seconds=waitSeconds(rest)
+      if seconds then return {all=true,seconds=seconds} end
+    end
+  end
+  function K:pickupLimitState()
+    local key=norm(self.actor)
+    if key=="" then key="legacy" end
+    local state=self.pickupLimits[key]
+    if not state then state={classes={}};self.pickupLimits[key]=state end
+    return state
+  end
+  function K:pickupGate(kind)
+    if kind=="miedzydomenowa" then kind="miedzykrainowa" end
+    local state=self:pickupLimitState()
+    local entry=state.classes[kind]
+    local untilAt=state.allUntil or 0
+    local count=0
+    if entry then
+      local recent={}
+      for _,at in ipairs(entry.issued or {}) do if at>api.now()-3600 and at<=api.now() then recent[#recent+1]=at end end
+      table.sort(recent);entry.issued=recent;count=#recent
+      untilAt=math.max(untilAt,entry.untilAt or 0)
+      if count>=(entry.limit or 30) then untilAt=math.max(untilAt,recent[count-(entry.limit or 30)+1]+3601) end
+    end
+    return math.max(0,untilAt-api.now()),count
+  end
+  function K:preparePickupLimit(offer)
+    local state=self:pickupLimitState()
+    state.pending={name=norm(offer.name),kind=offer.kind}
+    self:save()
+  end
+  function K:recordPickupLimit(name)
+    local state=self:pickupLimitState()
+    local kind
+    for _,offer in ipairs(self.boardRows or {}) do if norm(offer.name)==norm(name) then kind=offer.kind;break end end
+    if not kind and state.pending and state.pending.name==norm(name) then kind=state.pending.kind end
+    if not kind and self.selected and norm(self.selected.name)==norm(name) then kind=self.selected.kind end
+    state.pending=nil
+    if kind=="miedzydomenowa" then kind="miedzykrainowa" end
+    if QUOTA_KINDS[kind] then
+      self:pickupGate(kind)
+      local entry=state.classes[kind] or {issued={}}
+      state.classes[kind]=entry
+      entry.issued[#entry.issued+1]=api.now()
+      while #entry.issued>30 do table.remove(entry.issued,1) end
+    end
+    self:save()
+  end
+  function K:handlePickupWait(text)
+    if not self.awaitingPickup then return false end
+    local refusal=self:parsePickupWait(text)
+    if not refusal then return false end
+    local state=self:pickupLimitState()
+    local untilAt=api.now()+refusal.seconds+2
+    if refusal.all then state.allUntil=math.max(state.allUntil or 0,untilAt)
+    else
+      local entry=state.classes[refusal.kind] or {issued={}};state.classes[refusal.kind]=entry
+      entry.limit=refusal.limit;entry.untilAt=math.max(entry.untilAt or 0,untilAt)
+    end
+    state.pending=nil
+    self.awaitingPickup=false;self.manualPickup=false;self.pendingManualSource=nil
+    self:cancel("watchdog")
+    if api.cancelTiming then pcall(api.cancelTiming,"limit nadan lub czas oczekiwania") end
+    self:save();self:checkpoint()
+    self:say("Limit wydawania paczek ("..(refusal.kind or "wszystkie rodzaje").."). Ponowny wybor najwczesniej za "..(refusal.seconds+2).." s."..
+      (self.mode=="running" and " Sprawdzam inne dostepne rodzaje." or " Bot pozostaje zatrzymany."))
+    if self.mode=="running" then
+      self.phase="planning"
+      self:later("action",self:delay(),function() self:readBoard() end)
+    end
+    return true
+  end
+  function K:waitPickupLimit(untilAt)
+    self.phase="waitingQuota"
+    self:cancel("watchdog")
+    local seconds=math.max(1,untilAt-api.now())
+    self.lastPause="Limit wydawania paczek. Czekam na poczcie "..math.ceil(seconds).." s; potem odczytam nowa tablice. /paczki limity"
+    self:say(self.lastPause)
+    self:later("refresh",seconds,function() self:readBoard() end)
+  end
+  function K:showPickupLimits()
+    self:say("Limity: maksymalnie 30 wydanych paczek danego rodzaju w ostatnich 60 min. Limit gry obejmuje cale konto; lokalny licznik zna odbiory tego profilu/postaci.")
+    for _,kind in ipairs({"miedzymiastowa","miejscowa","miedzykrainowa"}) do
+      local seconds,count=self:pickupGate(kind)
+      self:say(kind..": potwierdzone odbiory "..count.."/30; oczekiwanie "..math.ceil(seconds).." s.")
+    end
+  end
   local function trim(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
   local function same(a,b) return a and b and norm(a.title)==norm(b.title) and a.exits==b.exits end
   local function hasExit(room, cmd) return room and (","..room.exits..","):find(","..cmd..",", 1, true) ~= nil end
@@ -406,7 +520,7 @@ return function(data, api, saved)
   end
   function K:save()
     if api.save then
-      local ok = pcall(api.save, {config=self.config,customRoutes=self.customRoutes,unavailableRecipients=self.unavailableRecipients})
+      local ok = pcall(api.save, {config=self.config,customRoutes=self.customRoutes,unavailableRecipients=self.unavailableRecipients,pickupLimits=self.pickupLimits})
       if not ok then self:say("Nie udalo sie zapisac ustawien/trasy w profilu.") end
     end
   end
@@ -647,7 +761,7 @@ return function(data, api, saved)
         self.bank and self.bank.nextAt and "; termin za: "..math.ceil(math.max(0,self.bank.nextAt-api.now())/60).." min" or "")..". Wizyty tylko przy okazji pobytu na poczcie Nuln.")
     if option=="teraz" and self.mode=="running" and not self.job and not self.bank.stage and
         not self.awaitingPickup and not self.awaitingDelivery and not self.awaitingReturn and not self.awaitingReward and
-        (self.phase=="board" or self.phase=="waiting" or self.phase=="planning" or self.phase=="ranking") and self:bankAtOffice() then
+        (self.phase=="board" or self.phase=="waiting" or self.phase=="waitingQuota" or self.phase=="planning" or self.phase=="ranking") and self:bankAtOffice() then
       self:clearTimers();self:bankVisit()
     end
   end
@@ -659,6 +773,8 @@ return function(data, api, saved)
       if not current or current.id~=self.source.id or current.map~=self.source.map then self:pause("Nie potwierdzono powrotu do urzedu nadania."); return end
     elseif self.node~="home" or not same(self.lastRoom,data.office) then self:pause("Tablice czytam dopiero na rozpoznanej poczcie."); return end
     if self:bankDue() then self:bankVisit();return end
+    local allUntil=self:pickupLimitState().allUntil or 0
+    if allUntil>api.now() then self:waitPickupLimit(allUntil);return end
     if api.canDispatch and self.source then
       local allowed,reason=api.canDispatch(self.source)
       if not allowed then
@@ -698,6 +814,7 @@ return function(data, api, saved)
     local eligible,unknown,diagnostics,byOffer={},{},{},{}
     local routesByRecipient={}
     local groups={miejscowa={},miedzymiastowa={}}
+    self.pickupRetryAt=nil
     for _,o in ipairs(rows) do
       if api.cooperate then api.cooperate() end
       local detail={number=o.number,name=o.name,kg=o.kg,kind=o.kind,eligible=false}
@@ -715,17 +832,22 @@ return function(data, api, saved)
         detail.category="empty";detail.reason="oferta wyczerpana"
       elseif value(o.pay)<=0 then
         detail.category="pay";detail.reason="brak dodatniej nagrody"
+      elseif self:pickupGate(o.kind)>0 then
+        local seconds=self:pickupGate(o.kind)
+        detail.category="quota";detail.reason="limit wydawania rodzaju; dostepna najwczesniej za "..math.ceil(seconds).." s"
+        local at=api.now()+seconds
+        self.pickupRetryAt=math.min(self.pickupRetryAt or at,at)
       elseif self.rejected[self:offerKey(o)] then
         detail.category="rejected";detail.reason="gra odrzucila te oferte przy poprzedniej probie"
       else groups[o.kind][#groups[o.kind]+1]=o end
     end
-    for _,kind in ipairs({"miejscowa","miedzymiastowa"}) do
-      local defer=kind=="miedzymiastowa" and #eligible>0
+    for _,kind in ipairs({"miedzymiastowa","miejscowa"}) do
+      local defer=kind=="miejscowa" and #eligible>0
       for _,o in ipairs(groups[kind]) do
         if api.cooperate then api.cooperate() end
         local detail=byOffer[o]
         if defer then
-          detail.category="deferred";detail.reason="odlozona: najpierw dostepne paczki miejscowe; trasa jeszcze nie liczona"
+          detail.category="deferred";detail.reason="odlozona: najpierw dostepne paczki miedzymiastowe; trasa jeszcze nie liczona"
         else
           local recipient=norm(o.name)
           local cached=routesByRecipient[recipient]
@@ -771,7 +893,7 @@ return function(data, api, saved)
           detail.etaSeconds/60,detail.silverPerMinute,detail.timeMethod=="learned" and "pomiar + szacunek" or "szacunek",detail.timeSamples)
       end
     end
-    self.offerDiagnostics=diagnostics;self.offersLimit=self.config.maxKg;self.offersStrategy="local_first"
+    self.offerDiagnostics=diagnostics;self.offersLimit=self.config.maxKg;self.offersStrategy="intercity_first"
     self.offersSource=self.source and {id=self.source.id,name=self.source.name,city=self.source.city} or nil
     return eligible,unknown,diagnostics
   end
@@ -781,9 +903,9 @@ return function(data, api, saved)
     for _,row in ipairs(rows) do
       if row.eligible then accepted=accepted+1 else counts[row.category]=(counts[row.category] or 0)+1 end
     end
-    local labels={weight="waga",route="adresat lub trasa",kind="rodzaj doreczenia",deferred="po miejscowych",cooldown="adresat odlozony",empty="wyczerpane",pay="nagroda",rejected="odmowa gry",time="czas kursu"}
+    local labels={weight="waga",route="adresat lub trasa",kind="rodzaj doreczenia",deferred="po miedzymiastowych",quota="limit nadan / oczekiwanie",cooldown="adresat odlozony",empty="wyczerpane",pay="nagroda",rejected="odmowa gry",time="czas kursu"}
     local reasons={}
-    for _,category in ipairs({"weight","route","kind","deferred","cooldown","empty","pay","rejected","time"}) do
+    for _,category in ipairs({"weight","route","kind","deferred","quota","cooldown","empty","pay","rejected","time"}) do
       if counts[category] then reasons[#reasons+1]=labels[category]..": "..counts[category] end
     end
     return "Ocena ofert: "..accepted.." z "..#rows.." spelnia warunki"..(#reasons>0 and " ("..table.concat(reasons,", ")..")" or "")..". /paczki oferty — przyczyny i ranking."
@@ -803,7 +925,7 @@ return function(data, api, saved)
     self:startPlanning(function()
       local eligible,unknown=self:rank(rows or {})
       local office,why
-      if not eligible[1] and self.config.roam and api.nextOffice and source then
+      if not eligible[1] and not self.pickupRetryAt and self.config.roam and api.nextOffice and source then
         self:say(self:offerSummary());summaryShown=true
         self:say("Szukam kolejnej dostepnej poczty nadajacej paczki.")
         office,why=api.nextOffice(source)
@@ -826,6 +948,7 @@ return function(data, api, saved)
     if self:bankDue() then self:bankVisit();return end
     if not eligible[1] then
       if not summaryShown then self:say(self:offerSummary()) end
+      if self.pickupRetryAt then self:waitPickupLimit(self.pickupRetryAt);return end
       if office and self.config.roam then self:relocate(office); return end
       local seen,names={},{}
       for _,name in ipairs(unknown) do if not seen[name] then seen[name]=true; names[#names+1]=name end end
@@ -838,6 +961,7 @@ return function(data, api, saved)
     end
     if api.officeWorking and self.source then api.officeWorking(self.source) end
     local o=eligible[1]
+    self.lastPause=nil
     self.selected=o; self.phase="pickup"
     self:say("Wybieram #"..o.number.." ["..o.kind.."]: "..o.route.name..", "..o.kg.." kg, "..o.pay.gold.." zl, "..o.pay.silver.." sr, "..o.pay.copper.." md; koszt drogi: "..
       (o.route.cost or 2*#o.route.commands)..(o.route.postal and " (do poczty docelowej)." or " (tam i z powrotem)."))
@@ -845,10 +969,12 @@ return function(data, api, saved)
       o.eta.seconds/60,o.score,o.eta.method=="learned" and "dopasowanie do pomiarow" or "szacunek",o.eta.samples or 0)) end
     if api.startTiming then pcall(api.startTiming,o,self.source) end
     self.awaitingPickup=true
+    self:preparePickupLimit(o)
     self:checkpoint()
     self:watch("odbior paczki"); self:sendCommand("wybierz paczke "..o.number)
   end
   function K:accepted(name)
+    self:recordPickupLimit(name)
     self:cancel("watchdog")
     self.awaitingPickup=false
     -- The game's own pickup ACK confirms the already ranked recipient.
@@ -1316,6 +1442,7 @@ return function(data, api, saved)
     end
     local picked=s:match("^bierzesz paczke przeznaczona dla: (.+)%.$")
     if picked and self.awaitingPickup then
+      self:recordPickupLimit(picked)
       local wasManual=self.manualPickup
       local changed=not wasManual and self.selected and norm(self.selected.name)~=norm(picked)
       self.awaitingPickup=false
@@ -1350,6 +1477,7 @@ return function(data, api, saved)
   function K:onLine(raw)
     local text=trim(tostring(raw or "")); local s=norm(text)
     if s=="" then return end
+    if self:handlePickupWait(s) then return end
     local actor=s:match("^witaj, (.-)[%.!] podaj haslo")
     if actor then
       -- The greeting uses a vocative (e.g. Testowiczu), not the canonical
@@ -1424,7 +1552,7 @@ return function(data, api, saved)
       if self.mode=="learning" and self.learning then
         if norm(picked)~=norm(self.learning.name) or #self.learning.commands>0 then self:pause("Odebrano paczke innego adresata lub poza punktem startu; nauka przerwana.")
         else self.learning.picked=true end
-      elseif self.phase=="pickup" then self:accepted(picked) end
+      elseif self.phase=="pickup" and self.awaitingPickup then self:accepted(picked) end
       return
     end
     if self.awaitingReturn and returned(s) then self:finishReturn();return end
@@ -1517,9 +1645,9 @@ return function(data, api, saved)
       (self.job and " | paczka: "..self.job.name..(self.job.delivered and " (oddana)" or " (w drodze)") or ""))
   end
   function K:help()
-    self:say("/kurier start [liczba] | stop | wznow | status | trasy | oferty | plecak auto/stop | limit <kg> | tempo <sekundy> | odswiezanie <sekundy> | szukanie <minuty> | bank <minuty|teraz|on|off|status> | tryb miejscowe | poczty auto/stop | poczta <miasto|tutaj> | paczka <adresat> | ucz <adresat> | nauka auto/stop | baza | reset")
+    self:say("/kurier start [liczba] | stop | wznow | status | trasy | oferty | plecak auto/stop | limit <kg> | tempo <sekundy> | odswiezanie <sekundy> | szukanie <minuty> | limity | bank <minuty|teraz|on|off|status> | tryb miejscowe | poczty auto/stop | poczta <miasto|tutaj> | paczka <adresat> | ucz <adresat> | nauka auto/stop | baza | reset")
     self:say("Pierwszy start: bez paczki, w urzedzie nadania. /paczki npc Imie Nazwisko sprawdza baze /npc i mape. Trasy tekstowe oraz ich nauka zaczynaja sie na poczcie w Nuln.")
-    if api.estimateTime then self:say("Kolejnosc: miejscowe, potem miedzymiastowe poczta -> poczta. Miedzydomenowe wylaczone. W grupie: numer tablicy; waga tylko jako limit. ETA i sr/min sa informacyjne.") end
+    if api.estimateTime then self:say("Kolejnosc: miedzymiastowe poczta -> poczta, potem miejscowe. Miedzydomenowe wylaczone. W grupie: numer tablicy; waga tylko jako limit. ETA i sr/min sa informacyjne.") end
   end
   function K:command(input)
     local verb,arg=trim(input or ""):match("^(%S+)%s*(.-)$")
@@ -1533,6 +1661,7 @@ return function(data, api, saved)
     elseif verb=="poczta" then self:selectOffice(arg)
     elseif verb=="status" then self:status()
     elseif verb=="bank" then self:bankCommand(arg)
+    elseif verb=="limity" then self:showPickupLimits()
     elseif verb=="plecak" then
       local option=norm(arg)
       if option~="auto" and option~="stop" then self:say("/paczki plecak auto | /paczki plecak stop. Wykrywanie noszonego plecaka: "..(self.config.autoBackpack and "wlaczone" or "wylaczone").."; przypisania /pojemniki maja pierwszenstwo.");return end
@@ -1634,11 +1763,11 @@ return function(data, api, saved)
       if not minutes or minutes<1 or minutes>60 then self:say("/paczki szukanie <minuty 1-60>; obecnie "..(self.config.searchSeconds/60).." min.");return end
       self.config.searchSeconds=minutes*60;self:save();self:say("Limit szukania adresata: "..minutes.." min.")
     elseif verb=="tryb" then
-      if not ({miejscowe=true,zarobek=true,zaplata=true,lekkie=true})[norm(arg)] then
-        self:say("Tryb: miejscowe. Najpierw miejscowe, potem miedzymiastowe poczta -> poczta."); return
+      if not ({miedzymiastowe=true,miejscowe=true,zarobek=true,zaplata=true,lekkie=true})[norm(arg)] then
+        self:say("Tryb: miedzymiastowe. Najpierw miedzymiastowe poczta -> poczta, potem miejscowe."); return
       end
-      self.config.strategy="local_first"; self:save()
-      self:say("Kolejnosc: miejscowe, potem miedzymiastowe poczta -> poczta. Dawne tryby cen i wagi nie zmieniaja tej kolejnosci.")
+      self.config.strategy="intercity_first"; self:save()
+      self:say("Kolejnosc: miedzymiastowe poczta -> poczta, potem miejscowe. Dawne tryby cen i wagi nie zmieniaja tej kolejnosci.")
     else self:help() end
   end
   -- Configuration and recorded text routes; live courses use the separate
@@ -1652,8 +1781,8 @@ return function(data, api, saved)
         local n=tonumber(c[key]); if n and n>0 and n<1000 then K.config[key]=n end
       end
       K.config.delay=math.max(0.15,K.config.delay); K.config.refresh=math.max(5,K.config.refresh)
-      -- Old saved rate/pay/light preferences cannot override local-first policy.
-      K.config.strategy="local_first"
+      -- Old saved rate/pay/light preferences cannot override intercity-first policy.
+      K.config.strategy="intercity_first"
       if type(c.searchSeconds)=="number" and c.searchSeconds>=60 and c.searchSeconds<=3600 then K.config.searchSeconds=c.searchSeconds end
       if type(c.recipientCooldown)=="number" and c.recipientCooldown>=60 and c.recipientCooldown<=86400 then K.config.recipientCooldown=c.recipientCooldown end
       if type(c.roam)=="boolean" then K.config.roam=c.roam end
@@ -1668,6 +1797,33 @@ return function(data, api, saved)
     if type(saved.unavailableRecipients)=="table" then
       for key,expiry in pairs(saved.unavailableRecipients) do
         if type(key)=="string" and #key<=500 and type(expiry)=="number" and expiry>api.now() and expiry<math.huge then K.unavailableRecipients[key]=expiry end
+      end
+    end
+    if type(saved.pickupLimits)=="table" then
+      local actors=0
+      local function validTime(at) return type(at)=="number" and at==at and at>=0 and at<=api.now()+86400 end
+      for actor,record in pairs(saved.pickupLimits) do
+        if actors<100 and type(actor)=="string" and #actor<=128 and type(record)=="table" then
+          local clean={classes={}};actors=actors+1
+          if validTime(record.allUntil) then clean.allUntil=record.allUntil end
+          if type(record.classes)=="table" then for kind,entry in pairs(record.classes) do
+            if QUOTA_KINDS[kind] and type(entry)=="table" then
+              local row={issued={}}
+              if validTime(entry.untilAt) then row.untilAt=entry.untilAt end
+              if type(entry.limit)=="number" and entry.limit>=1 and entry.limit<=30 and entry.limit==math.floor(entry.limit) then row.limit=entry.limit end
+              if type(entry.issued)=="table" then
+                for _,at in ipairs(entry.issued) do if validTime(at) and at>api.now()-3600 and at<=api.now() then row.issued[#row.issued+1]=at end end
+                table.sort(row.issued);while #row.issued>30 do table.remove(row.issued,1) end
+              end
+              clean.classes[kind]=row
+            end
+          end end
+          local pending=record.pending
+          if type(pending)=="table" and type(pending.name)=="string" and #pending.name<=1024 and QUOTA_KINDS[pending.kind] then
+            clean.pending={name=pending.name,kind=pending.kind}
+          end
+          K.pickupLimits[actor]=clean
+        end
       end
     end
     if type(saved.customRoutes)=="table" then

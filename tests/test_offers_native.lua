@@ -155,8 +155,8 @@ T.test("known Nuln5kg is selected at limit6.2 while unknown NPC and Bissingen8 o
         "4. Poczta w Bissingen miedzymiastowa 12.00 kg 8 zlotych monet [x1]"})
     T.eq("wybierz paczke 3",nextSend());T.eq(6.2,C.config.maxKg);T.eq(3,C.selected.number)
     T.eq(true,C.selected.route.postal);T.eq(IDS[6],C.selected.route.targetId)
-    T.eq(4,#C.offerDiagnostics);T.eq(6.2,C.offersLimit);T.eq("local_first",C.offersStrategy);T.eq(IDS[1],sourceId(C.offersSource))
-    T.eq(false,diagnostic(C,1).eligible);T.eq("route",diagnostic(C,1).category)
+    T.eq(4,#C.offerDiagnostics);T.eq(6.2,C.offersLimit);T.eq("intercity_first",C.offersStrategy);T.eq(IDS[1],sourceId(C.offersSource))
+    T.eq(false,diagnostic(C,1).eligible);T.eq("deferred",diagnostic(C,1).category)
     for _,number in ipairs({2,4}) do
         local row=diagnostic(C,number);T.eq(false,row.eligible);T.eq("weight",row.category)
         T.ok(row.kg>6.2);T.contains(row.reason,"6.2")
@@ -215,7 +215,7 @@ T.test("oferty shows the last source limit strategy per-row reasons and eligible
     local before=#M.sent;M.clear_output();M.input("/paczki oferty")
     T.eq(before,#M.sent);T.contains(C.norm(M.text()),"nuln");T.contains(C.norm(M.text()),"bissingen")
     T.contains(M.text(),"6.2");T.contains(C.norm(M.text()),"waga");T.contains(C.norm(M.text()),"rankingu")
-    T.eq(6.2,C.offersLimit);T.eq("local_first",C.offersStrategy);T.eq(IDS[1],sourceId(C.offersSource))
+    T.eq(6.2,C.offersLimit);T.eq("intercity_first",C.offersStrategy);T.eq(IDS[1],sourceId(C.offersSource))
     T.eq("running",C.mode,M.text());T.ok(bots.status());T.eq(0,#app.errors,M.text())
 end)
 T.test("zero eligible offers log reasons before moving to the first safe dispatch office in catalogue order",function()
@@ -231,24 +231,24 @@ T.test("zero eligible offers log reasons before moving to the first safe dispatc
     T.eq(6.2,C.config.maxKg);T.eq(IDS[1],sourceId(C.offersSource));T.eq(0,#app.errors,M.text())
 end)
 
-T.test("a cheap heavy local parcel beats a rich light intercity offer and both domain spellings are excluded",function()
+T.test("an intercity parcel precedes local delivery and both domain spellings remain excluded",function()
     local app,bots,C=start();launch()
     rows({"1. Poczta w Bissingen miedzymiastowa 0.10 kg 20 zlotych monet [x1]",
         "2. Poczta wolnego miasta Nuln miedzykrainowa 0.10 kg 90 zlotych monet [x1]",
         "3. Poczta wolnego miasta Nuln miedzydomenowa 0.10 kg 90 zlotych monet [x1]",
         "8. Johan Kornwalz miejscowa 6.00 kg 1 miedziana moneta [x1]"})
-    T.eq("wybierz paczke 8",nextSend());T.eq("miejscowa",C.selected.kind)
-    T.eq("deferred",diagnostic(C,1).category)
+    T.eq("wybierz paczke 1",nextSend());T.eq("miedzymiastowa",C.selected.kind)
+    T.eq("deferred",diagnostic(C,8).category)
     T.eq(false,diagnostic(C,2).eligible);T.eq(false,diagnostic(C,3).eligible)
     T.eq(0,#app.errors,M.text())
 end)
-T.test("two complete local deliveries exhaust the live board before selecting an intercity parcel",function()
+T.test("local deliveries remain available while the intercity offer is exhausted and a renewed offer becomes first choice",function()
     local app,bots,C=start();launch()
     local intercity="1. Poczta w Bissingen miedzymiastowa 0.10 kg 20 zlotych monet [x1]"
     for count=2,1,-1 do
-        rows({intercity,"7. Johan Kornwalz miejscowa 1.00 kg 1 miedziana moneta [x"..count.."]"})
+        rows({intercity:gsub("%[x1%]","[x0]"),"7. Johan Kornwalz miejscowa 1.00 kg 1 miedziana moneta [x"..count.."]"})
         T.eq("wybierz paczke 7",nextSend());T.eq("miejscowa",C.selected.kind)
-        T.eq("deferred",diagnostic(C,1).category)
+        T.eq("empty",diagnostic(C,1).category)
         deliverNpcAndReturn()
         T.eq(3-count,C.stats.delivered)
         T.eq("przeczytaj tablice",nextSend())
@@ -265,11 +265,11 @@ T.test("two complete local deliveries exhaust the live board before selecting an
     T.eq("przeczytaj tablice",nextSend());T.eq(IDS[5],sourceId(C.source));T.eq(3,C.stats.delivered)
     rows({"1. Poczta wolnego miasta Nuln miedzymiastowa 0.10 kg 20 zlotych monet [x1]",
         "7. Johan Kornwalz miejscowa 1.00 kg 1 miedziana moneta [x1]"})
-    T.eq("wybierz paczke 7",nextSend());T.eq("miejscowa",C.selected.kind)
-    T.eq("deferred",diagnostic(C,1).category)
+    T.eq("wybierz paczke 1",nextSend());T.eq("miedzymiastowa",C.selected.kind)
+    T.eq("deferred",diagnostic(C,7).category)
     T.eq(0,#app.errors,M.text())
 end)
-T.test("local availability avoids route calculations for deferred and excluded parcel types",function()
+T.test("intercity availability avoids route calculations for deferred and excluded parcel types",function()
     local app,bots,C=start();C:captureSource()
     local original=C.resolveRoute
     local consulted={}
@@ -280,11 +280,11 @@ T.test("local availability avoids route calculations for deferred and excluded p
     local ranked=C:rank({assert(C:parseOffer("1. Poczta w Bissingen miedzymiastowa 1.00 kg 20 zlotych monet [x1]")),
         assert(C:parseOffer("2. Poczta wolnego miasta Nuln miedzydomenowa 1.00 kg 90 zlotych monet [x1]")),
         assert(C:parseOffer("3. Johan Kornwalz miejscowa 1.00 kg 1 miedziana moneta [x1]"))})
-    T.eq(3,ranked[1].number);T.eq(1,consulted["johan kornwalz"])
-    T.eq(nil,consulted["poczta w bissingen"]);T.eq(nil,consulted["poczta wolnego miasta nuln"])
-    T.eq("deferred",diagnostic(C,1).category);T.eq(0,#app.errors,M.text())
+    T.eq(1,ranked[1].number);T.eq(nil,consulted["johan kornwalz"])
+    T.eq(1,consulted["poczta w bissingen"]);T.eq(nil,consulted["poczta wolnego miasta nuln"])
+    T.eq("deferred",diagnostic(C,3).category);T.eq(0,#app.errors,M.text())
 end)
-T.test("local exhaustion unlocks only office-to-office intercity parcels on the next board",function()
+T.test("intercity remains first while local availability changes and interdomain parcels remain excluded",function()
     local app,bots,C=start();C:captureSource()
     local localOffer=assert(C:parseOffer("9. Johan Kornwalz miejscowa 1.00 kg 1 miedziana moneta [x2]"))
     local intercity=assert(C:parseOffer("1. Poczta w Bissingen miedzymiastowa 0.10 kg 20 zlotych monet [x1]"))
@@ -292,7 +292,7 @@ T.test("local exhaustion unlocks only office-to-office intercity parcels on the 
     for count=2,1,-1 do
         localOffer.count=count
         local ranked=C:rank({intercity,domain,localOffer})
-        T.eq(9,ranked[1].number);T.eq("deferred",diagnostic(C,1).category)
+        T.eq(1,ranked[1].number);T.eq("deferred",diagnostic(C,9).category)
     end
     localOffer.count=0
     local ranked=C:rank({intercity,domain,localOffer})
@@ -300,13 +300,13 @@ T.test("local exhaustion unlocks only office-to-office intercity parcels on the 
     T.eq("empty",diagnostic(C,9).category);T.eq(false,diagnostic(C,2).eligible)
     T.eq(0,#app.errors,M.text())
 end)
-T.test("unknown local recipients are skipped without displacing another available local",function()
+T.test("unknown local recipients are deferred while an intercity parcel is available",function()
     local app,bots,C=start();launch()
     rows({"1. Nieznany Tragarz miejscowa 0.10 kg 10 zlotych monet [x1]",
         "2. Poczta w Bissingen miedzymiastowa 0.10 kg 20 zlotych monet [x1]",
         "7. Johan Kornwalz miejscowa 1.00 kg 1 miedziana moneta [x1]"})
-    T.eq("wybierz paczke 7",nextSend());T.eq("route",diagnostic(C,1).category)
-    T.eq("deferred",diagnostic(C,2).category);T.eq(0,#app.errors,M.text())
+    T.eq("wybierz paczke 2",nextSend());T.eq("deferred",diagnostic(C,1).category)
+    T.eq("eligible",diagnostic(C,2).category);T.eq(0,#app.errors,M.text())
 end)
 T.test("a failed local route allows a real intercity office but never an intercity NPC",function()
     local app,bots,C=start();C:captureSource()
